@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Lightware — المستودع</title>
+<style>
+  :root{
+    --ink:#141414; --paper:#FAF6EF; --amber:#E8870B; --glow:#FFEDD4;
+    --card:#FFFFFF; --line:#EAE3D6; --muted:#8A8271;
+    --stockout:#8B0000; --red:#E74C3C; --yellow:#F1C40F; --green:#27AE60; --untracked:#B9B2A3;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{margin:0; background:var(--paper); color:var(--ink);
+       font-family:-apple-system,"Segoe UI",system-ui,"Noto Sans Arabic",sans-serif}
+
+  /* ---------- header ---------- */
+  header{background:var(--ink); color:var(--glow); padding:14px 16px 12px;
+         position:sticky; top:0; z-index:10}
+  .brand{display:flex; align-items:center; justify-content:space-between}
+  /* Lightware wordmark: light letterspaced caps + amber period (brand assets in "Logo Lightware/") */
+  .wordmark{font-size:16px; font-weight:300; letter-spacing:4px; color:#F2ECDF;
+            white-space:nowrap; direction:ltr; unicode-bidi:embed}
+  .wordmark .dot{color:var(--amber); font-weight:600; letter-spacing:0}
+  .sync{font-size:11px; color:#C9A871; text-align:left; direction:ltr}
+
+  /* ---------- search ---------- */
+  .searchwrap{padding:12px 16px 4px; background:var(--ink)}
+  #search{width:100%; padding:13px 16px; font-size:16px; border:none; border-radius:12px;
+          background:#232323; color:var(--glow); outline:none}
+  #search::placeholder{color:#7d7568}
+  #search:focus{box-shadow:0 0 0 2px var(--amber)}
+
+  /* ---------- filter chips ---------- */
+  .chips{display:flex; gap:8px; overflow-x:auto; padding:12px 16px; background:var(--ink);
+         scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto; padding:7px 14px; border-radius:999px; font-size:13px; border:1px solid #3a3a3a;
+        background:#232323; color:#cfc6b4; cursor:pointer; user-select:none}
+  .chip .n{opacity:.7; font-size:11px; margin-inline-start:4px}
+  .chip.active{background:var(--amber); border-color:var(--amber); color:#1a1a1a; font-weight:600}
+
+  /* ---------- list ---------- */
+  main{padding:12px 12px 40px; max-width:640px; margin:0 auto}
+  .item{background:var(--card); border:1px solid var(--line); border-radius:12px;
+        padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:12px;
+        border-inline-start:6px solid var(--untracked)}
+  .item.STOCKOUT{border-inline-start-color:var(--stockout)}
+  .item.RED{border-inline-start-color:var(--red)}
+  .item.YELLOW{border-inline-start-color:var(--yellow)}
+  .item.GREEN{border-inline-start-color:var(--green)}
+  .thumb{width:52px; height:52px; border-radius:10px; object-fit:cover; flex:0 0 auto;
+         border:1px solid var(--line); background:#F4F0E8; cursor:zoom-in}
+
+  /* ---------- image lightbox ---------- */
+  .lightbox{position:fixed; inset:0; z-index:100; background:rgba(20,20,20,.78);
+            display:none; align-items:center; justify-content:center; padding:24px}
+  .lightbox.open{display:flex}
+  .lightbox img{max-width:92vw; max-height:80vh; border-radius:14px; background:#fff;
+                box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  .lightbox .close{position:absolute; top:calc(env(safe-area-inset-top, 0px) + 16px);
+                   inset-inline-end:16px; width:42px; height:42px; border:none;
+                   border-radius:999px; background:#fff; color:#141414; font-size:19px;
+                   cursor:pointer}
+  .info{flex:1; min-width:0}
+  .name{font-size:14.5px; font-weight:600; line-height:1.35; word-break:break-word}
+  /* code · latin ref: always LTR text, but aligned to the CARD's start edge —
+     so it flips with the document, not with its own direction */
+  .meta{font-size:12px; color:var(--muted); margin-top:3px; direction:ltr; text-align:right}
+  html[dir="ltr"] .meta{text-align:left}
+  .side{text-align:center; flex:0 0 auto}
+  .qty{font-size:20px; font-weight:700; line-height:1}
+  .cost{font-size:11px; color:#7FBF7F; font-weight:700; margin-top:2px}
+  .stores{display:flex; flex-wrap:wrap; gap:4px; margin-top:5px}
+  .storetag{font-size:10.5px; color:var(--muted); background:#FAF7F0;
+    border:1px solid var(--line); border-radius:6px; padding:1px 6px; white-space:nowrap;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis}
+  .storetag b{color:#1C1813}
+  .storetag .shelf{color:#E8870B; font-weight:700}
+  .authbtn{background:none; border:1px solid #3a352e; border-radius:8px;
+    padding:4px 9px; font-size:14px; cursor:pointer; color:inherit}
+  .authcard{background:#1D1915; border:1px solid #3a352e; border-radius:14px;
+    padding:20px; width:min(320px,88vw); display:flex; flex-direction:column; gap:10px}
+  .authcard input{background:#16130F; border:1px solid #3a352e; border-radius:10px;
+    padding:10px 12px; color:inherit; font:inherit}
+  .authgo{background:#E8870B; color:#1a1a1a; font-weight:700; border:none;
+    border-radius:10px; padding:11px; cursor:pointer; font:inherit}
+  .autherr{color:#E07B6A; font-size:12px; min-height:14px}
+  .unit{font-size:11px; color:var(--muted)}
+  .tag{display:inline-block; margin-top:6px; padding:3px 10px; border-radius:999px;
+       font-size:11px; font-weight:700; color:#fff; background:var(--untracked)}
+  .tag.STOCKOUT{background:var(--stockout)} .tag.RED{background:var(--red)}
+  .tag.YELLOW{background:var(--yellow); color:#1a1a1a} .tag.GREEN{background:var(--green)}
+  .cover{font-size:11px; color:var(--muted); margin-top:4px}
+
+  .state{padding:48px 20px; text-align:center; color:var(--muted); font-size:15px}
+  .count{font-size:12px; color:var(--muted); margin:4px 4px 10px}
+  @media (prefers-reduced-motion:no-preference){
+    .item{transition:transform .08s ease} .item:active{transform:scale(.985)}
+  }
+  /* ---------- custom brand dropdown ---------- */
+  .filterbar { display: flex; gap: 10px; padding: 0 16px 12px; background: var(--ink); }
+  .custom-select-wrapper { position: relative; flex: 1; user-select: none; }
+  .custom-select-trigger {
+    width: 100%; padding: 12px 38px 12px 14px; font-size: 15px; border: none;
+    border-radius: 12px; background: #232323; color: var(--glow); cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .custom-select-trigger:focus { box-shadow: 0 0 0 2px var(--amber); outline: none; }
+  .custom-select-trigger::after {
+    content: "▾"; position: absolute; inset-inline-start: 14px; 
+    top: 50%; transform: translateY(-50%); color: #C9A871; font-size: 13px;
+  }
+  .custom-options {
+    position: absolute; top: 100%; left: 0; right: 0; margin-top: 8px;
+    background: #232323; border: 1px solid #3a3a3a; border-radius: 12px;
+    overflow: hidden; display: none; z-index: 100; max-height: 250px; overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .custom-options.open { display: block; }
+  .custom-option { padding: 12px 14px; color: var(--glow); cursor: pointer; font-size: 15px; border-bottom: 1px solid #3a3a3a; }
+  .custom-option:last-child { border-bottom: none; }
+  .custom-option.selected { color: var(--amber); font-weight: 600; }
+
+  /* ---------- qty sort pill (cycles: default → high→low → low→high) ---------- */
+  .sortpill {
+    flex: 0 0 auto; padding: 12px 14px; font-size: 15px; border: none;
+    border-radius: 12px; background: #232323; color: var(--glow); cursor: pointer;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .sortpill.active { color: var(--amber); font-weight: 600; box-shadow: inset 0 0 0 1px var(--amber); }
+  .sortpill:focus { outline: none; box-shadow: 0 0 0 2px var(--amber); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="wordmark">LIGHTWARE<span class="dot">.</span></span>
+    <span style="display:flex;align-items:center;gap:10px">
+      <span class="sync" id="sync">…</span>
+      <button class="authbtn" id="langbtn">EN</button>
+      <button class="authbtn" id="authbtn">🔒</button>
+    </span>
+  </div>
+</header>
+
+<!-- team login — unlocks the cost column (authenticated-only in Supabase) -->
+<div class="lightbox" id="authbox">
+  <div class="authcard" onclick="event.stopPropagation()">
+    <div style="font-weight:700;margin-bottom:10px" id="auth-title"></div>
+    <input id="auth-email" type="email" dir="ltr" autocomplete="username">
+    <input id="auth-pass" type="password" dir="ltr" autocomplete="current-password">
+    <div class="autherr" id="auth-err"></div>
+    <button class="authgo" id="auth-go"></button>
+  </div>
+</div>
+
+<div class="searchwrap">
+  <input id="search" type="search" placeholder="ابحث بالكود أو الاسم…" autocomplete="off">
+</div>
+
+<div class="filterbar">
+  <div class="custom-select-wrapper" id="brand-wrapper">
+    <div class="custom-select-trigger" tabindex="0" id="brand-trigger">كل الماركات</div>
+    <div class="custom-options" id="brand-options">
+      </div>
+  </div>
+  <button class="sortpill" id="sortpill" title="ترتيب حسب الكمية">⇅ ترتيب</button>
+</div>
+
+<div class="chips" id="chips"></div>
+
+<main>
+  <div class="count" id="count"></div>
+  <div id="list"><div class="state">عم نحمّل البيانات…</div></div>
+</main>
+
+<div class="lightbox" id="lightbox">
+  <button class="close" aria-label="إغلاق">✕</button>
+  <img id="lightbox-img" alt="">
+</div>
+
+<script>
+/* ================= CONFIG — fill these two ================= */
+const SUPABASE_URL = "https://ohprikkwnymjtcxzoylq.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ocHJpa2t3bnltanRjeHpveWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNDQ5MjQsImV4cCI6MjA5ODkyMDkyNH0.0nI52H8ZV6fuj948WGk-ZLDVSgIu9y59_9R2a_jZST0";
+/* =========================================================== */
+
+/* ================= i18n (AR Shami default / EN) =================
+   Same hand-rolled pattern as the portal: one dict, a t() lookup, dir+lang
+   flipped on <html>, choice persisted. Layout mirrors for free because the
+   CSS uses logical properties throughout.
+   ⚠ UI CHROME ONLY — item names stay as Al-Ameen wrote them (Arabic), same
+   as the portal: latin_name is a supplier SKU («SP-BK-7W»), not an English
+   product name, so swapping it in would make items HARDER to recognize. */
+const DICT = {
+  ar: {
+    title:"Lightware — المستودع",
+    cost_title:"عرض الكلفة (لفريق المحل)",
+    auth_title:"تسجيل دخول الفريق — لعرض الكلفة",
+    auth_email:"الإيميل", auth_pass:"كلمة السر", auth_go:"دخول",
+    auth_err:"ما زبط — تأكد من الإيميل وكلمة السر.",
+    logout_confirm:"تسجيل خروج؟ (بتختفي الكلفة)",
+    search_ph:"ابحث بالكود أو الاسم…",
+    all_brands:"كل الماركات",
+    sort_title:"ترتيب حسب الكمية",
+    sort_default:"⇅ ترتيب", sort_desc:"الكمية ⬇", sort_asc:"الكمية ⬆",
+    loading:"عم نحمّل البيانات…",
+    close:"إغلاق",
+    lang_btn:"EN",
+    count:(n)=>`${n} صنف`,
+    no_results:"ما في نتائج. جرّب كلمة تانية أو كود تاني.",
+    more_rows:(n)=>`في ${n} صنف كمان — ضيّق البحث لتشوفن.`,
+    cover:(m)=>`تغطية ${m} شهر`,
+    cost:(v)=>`كلفة $${v}`,
+    last_sync:"آخر تحديث",
+    stale:(h)=>`⚠ الأرقام مو محدّثة — آخر مزامنة قبل ${h} ساعات. شيك على كمبيوتر قصي (sync_log.txt).`,
+    load_err:"ما قدرنا نوصل للبيانات.<br>تأكد من الإنترنت ومن إعدادات الرابط والمفتاح.",
+    st:{STOCKOUT:"نفد", RED:"أحمر", YELLOW:"أصفر", GREEN:"أخضر", UNTRACKED:"غير متتبع"},
+    all:"الكل",
+    locale:"ar-SY",
+  },
+  en: {
+    title:"Lightware — Warehouse",
+    cost_title:"Show cost (team only)",
+    auth_title:"Team sign-in — to see cost",
+    auth_email:"Email", auth_pass:"Password", auth_go:"Sign in",
+    auth_err:"Didn't work — check the email and password.",
+    logout_confirm:"Sign out? (cost will be hidden)",
+    search_ph:"Search by code or name…",
+    all_brands:"All brands",
+    sort_title:"Sort by quantity",
+    sort_default:"⇅ Sort", sort_desc:"Qty ⬇", sort_asc:"Qty ⬆",
+    loading:"Loading…",
+    close:"Close",
+    lang_btn:"ع",
+    count:(n)=>`${n} item${n===1?"":"s"}`,
+    no_results:"No results. Try another word or code.",
+    more_rows:(n)=>`${n} more item${n===1?"":"s"} — narrow the search to see them.`,
+    cover:(m)=>`${m} months cover`,
+    cost:(v)=>`cost $${v}`,
+    last_sync:"Updated",
+    stale:(h)=>`⚠ Numbers are stale — last sync ${h}h ago. Check Qusay's PC (sync_log.txt).`,
+    load_err:"Couldn't reach the data.<br>Check the internet and the URL/key settings.",
+    st:{STOCKOUT:"Out", RED:"Red", YELLOW:"Yellow", GREEN:"Green", UNTRACKED:"Untracked"},
+    all:"All",
+    locale:"en-GB",
+  },
+};
+const LANG_KEY = "lw_dash_lang";
+let lang = (()=>{ try { return localStorage.getItem(LANG_KEY)==="en" ? "en" : "ar"; } catch { return "ar"; } })();
+const t = (k)=> DICT[lang][k];
+
+const SEVERITY = {STOCKOUT:0, RED:1, YELLOW:2, GREEN:3, UNTRACKED:4};
+const FILTERS = ["ALL","STOCKOUT","RED","YELLOW","GREEN","UNTRACKED"];
+const statusLabel = (s)=> DICT[lang].st[s] || s;
+const filterLabel = (f)=> f==="ALL" ? DICT[lang].all : statusLabel(f);
+
+let items = [], activeFilter = "ALL", query = "", activeBrand = "ALL", sortMode = "default";
+
+/* ---------- session restore: search/filters/scroll survive app switches ----------
+   Phones evict the tab when you jump to WhatsApp and back; without this the
+   uncle lands on a blank start page and retypes everything. 12h shelf life —
+   yesterday's search restored tomorrow would just confuse. */
+const STATE_KEY = "lw_dash_state_v1";
+function saveState(){
+  try { localStorage.setItem(STATE_KEY, JSON.stringify({
+    q: query, brand: activeBrand, status: activeFilter, sort: sortMode,
+    scroll: window.scrollY, ts: Date.now(),
+  })); } catch {}
+}
+function loadState(){
+  try {
+    const s = JSON.parse(localStorage.getItem(STATE_KEY) || "null");
+    return (s && Date.now() - s.ts < 12*3600e3) ? s : null;
+  } catch { return null; }
+}
+
+/* explicit column list — the anon role deliberately cannot read `cost`
+   (internal margin data). A logged-in team session unlocks it. */
+const COLS = "code,name,latin_name,unit,qty,brand,tracked,status,months_cover,synced_at,image_url";
+const AUTH_KEY = "lw_dash_auth";
+
+function savedAuth(){
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch { return null; }
+}
+async function getToken(){
+  let a = savedAuth();
+  if(!a) return null;
+  if(a.expires_at*1000 > Date.now()+60000) return a.access_token;
+  // expired -> refresh (vanilla GoTrue REST, no library)
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
+    method:"POST", headers:{apikey:SUPABASE_ANON_KEY,"Content-Type":"application/json"},
+    body: JSON.stringify({refresh_token:a.refresh_token})
+  });
+  if(!r.ok){ localStorage.removeItem(AUTH_KEY); return null; }
+  a = await r.json();
+  localStorage.setItem(AUTH_KEY, JSON.stringify(a));
+  return a.access_token;
+}
+
+async function fetchAll(){
+  const tk = await getToken();
+  const attempt = async (cols, bearer)=>{
+    const out = [];
+    const PAGE = 1000;
+    for(let from=0;;from+=PAGE){
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/dashboard_items?select=${cols}`,{
+        headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${bearer}`,
+                  Range:`${from}-${from+PAGE-1}` }
+      });
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const page = await r.json();
+      out.push(...page);
+      if(page.length < PAGE) break;
+    }
+    return out;
+  };
+  if(tk){
+    /* logged-in extras degrade one at a time (pending SQL pastes must never
+       blank the dashboard): +cost+stock_by_store -> +cost -> anon columns */
+    try { return await attempt(COLS+",cost,stock_by_store", tk); }
+    catch(e){ /* stock_by_store column absent — try without it */ }
+    try { return await attempt(COLS+",cost", tk); }
+    catch(e){ /* cost column absent or stale session — fall through to anon */ }
+  }
+  return attempt(COLS, SUPABASE_ANON_KEY);
+}
+
+/* shelf locations (item_locations, authenticated-only) — quiet when the
+   table isn't migrated yet or the viewer isn't logged in */
+let itemLocs = {};              // code -> [{store, loc}]
+async function fetchLocs(){
+  const tk = await getToken();
+  if(!tk) return;
+  try {
+    const out = [];
+    for(let from=0;;from+=1000){
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/item_locations?select=code,store,loc`,{
+        headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${tk}`,
+                  Range:`${from}-${from+999}` }
+      });
+      if(!r.ok) return;
+      const page = await r.json();
+      out.push(...page);
+      if(page.length < 1000) break;
+    }
+    itemLocs = {};
+    for(const r of out) (itemLocs[r.code] = itemLocs[r.code] || []).push(r);
+  } catch(e){ /* internal extra — never block the public dashboard */ }
+}
+
+/* «مستودع المكتب» → «المكتب» + merge per-store qty with shelf labels */
+const shortStore = s => (s||"").replace(/^مستودع\s+/, "");
+/* shelf labels are STAFF-TYPED free text and this page renders via innerHTML
+   — escape them (item names are Al-Ameen data, unchanged pattern) */
+const escHtml = s => String(s).replace(/[&<>"']/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/* chip-safe qty: Al-Ameen floats carry residue (0.39999999999999858) */
+const fmtStoreQty = q => +Number(q).toFixed(2);
+function storeLineHtml(i){
+  const by = {};
+  for(const [s,q] of Object.entries(i.stock_by_store || {})) by[s] = {qty:q};
+  for(const r of itemLocs[i.code] || []) by[r.store] = {...(by[r.store]||{}), loc:r.loc};
+  const entries = Object.entries(by).map(([store,v])=>({store,...v}))
+    .sort((a,b)=>(b.qty||0)-(a.qty||0));
+  if(!entries.length) return "";
+  const tags = entries.slice(0,4).map(e=>
+    `<span class="storetag">${escHtml(shortStore(e.store))}${e.qty!=null?` <b>${fmtStoreQty(e.qty)}</b>`:""}${e.loc?` <span class="shelf">📍${escHtml(e.loc)}</span>`:""}</span>`
+  ).join("");
+  const more = entries.length>4 ? `<span class="storetag">+${entries.length-4}</span>` : "";
+  return `<div class="stores">${tags}${more}</div>`;
+}
+
+function fmtQty(q){ return Number.isInteger(q) ? q : q.toFixed(1); }
+
+// Dead-stock visibility: within the UNTRACKED group ONLY, float items that have
+// physical stock (qty>0) to the top — biggest pile first — before the 0s/negatives.
+function untrackedRank(a,b){
+  const aPos = a.qty > 0, bPos = b.qty > 0;
+  if(aPos !== bPos) return aPos ? -1 : 1;   // positive stock before zero/negative
+  if(aPos) return b.qty - a.qty;            // both positive -> highest qty first
+  return a.qty - b.qty;                      // both <=0 -> unchanged (lowest first)
+}
+
+function severityCmp(a,b){
+  return (SEVERITY[a.status]-SEVERITY[b.status]) ||
+    ((a.months_cover??1e9)-(b.months_cover??1e9)) ||
+    ((a.status==="UNTRACKED" && b.status==="UNTRACKED") ? untrackedRank(a,b) : (a.qty-b.qty));
+}
+
+/* ================== search engine (mirror of order-portal/src/itemsearch.js —
+   keep the two in sync when tuning) ================== */
+const AR_DIGITS = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
+function normText(s){
+  if(!s) return "";
+  let t = String(s).toLowerCase()
+    .replace(/[٠-٩۰-۹]/g, d => AR_DIGITS[d] || d)
+    .replace(/[ً-ْـ]/g,"")
+    .replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه")
+    .replace(/[ىئ]/g,"ي").replace(/ؤ/g,"و").replace(/ء/g,"");
+  return t.replace(/[^0-9a-z؀-ۿ]+/g," ").trim();
+}
+const AR_MAP = {"ب":"b","ت":"t","ث":"t","ج":"j","ح":"h","خ":"k","د":"d","ذ":"z","ر":"r","ز":"z","س":"s","ش":"s","ص":"s","ض":"d","ط":"t","ظ":"z","غ":"g","ف":"f","ق":"k","ك":"k","ل":"l","م":"m","ن":"n","ه":"h"};
+function skeleton(word){
+  if(/[؀-ۿ]/.test(word)){
+    let out = "";
+    for(const ch of word){ const m = AR_MAP[ch]; if(m && m !== out[out.length-1]) out += m; }
+    return out;
+  }
+  let t = word
+    .replace(/kh/g,"k").replace(/sh/g,"s").replace(/ch/g,"s")
+    .replace(/th/g,"t").replace(/dh/g,"z").replace(/gh/g,"g")
+    .replace(/ph/g,"f").replace(/q/g,"k").replace(/c/g,"k")
+    .replace(/p/g,"b").replace(/v/g,"f")
+    .replace(/[aeiouwy]/g,"");
+  let out = "";
+  for(const ch of t) if(ch !== out[out.length-1]) out += ch;
+  return out;
+}
+function within(a,b,k){
+  if(Math.abs(a.length-b.length) > k) return false;
+  let prev = Array.from({length:b.length+1},(_,j)=>j);
+  for(let i=1;i<=a.length;i++){
+    const row=[i]; let best=i;
+    for(let j=1;j<=b.length;j++){
+      row[j]=Math.min(prev[j]+1,row[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+      if(row[j]<best) best=row[j];
+    }
+    if(best>k) return false;
+    prev=row;
+  }
+  return prev[b.length]<=k;
+}
+/* Curated category bridge — normalized forms only. Translation table, not a
+   thesaurus: only words naming a real category in THIS catalog. Ranks equal
+   to the literal word, so "led" ≡ «ليد» and stock/severity decides. */
+const SYN_GROUPS = [
+  ["led","ليد"],["strip","ستريب","شريط"],["spot","سبوت"],["lamp","bulb","لمبه"],
+  ["chandelier","ثريا"],["pendant","نازله"],["sconce","applique","ابليك"],
+  ["floodlight","projector","كشاف"],["panel","بلافونه","بانل"],["track","سكه"],
+  ["magnetic","magnet","مغناطيس"],["stand","ستاند"],["lantern","فانوس"],
+  ["crystal","كريستال"],["cable","كبل"],["driver","درايفر","محول"],["mirror","مرايه"],
+];
+const SYN = new Map();
+for(const g of SYN_GROUPS) for(const w of g) SYN.set(w, g.filter(x=>x!==w));
+
+const idxWords = s => s ? [...new Set(normText(s).split(" ").filter(Boolean))] : [];
+function buildItemIndex(list){
+  for(const i of list){
+    i._fields = [
+      [idxWords(`${i.code} ${i.name||""}`), 1],   // identity: code + name
+      [idxWords(i.latin_name), 0.85],              // supplier ref
+      [idxWords(i.brand), 0.55],                   // context only
+    ];
+    i._skels = i._fields.flatMap(([ws])=>ws).map(skeleton).filter(s=>s.length>=3);
+  }
+  return list;
+}
+/* graded scoring: WHERE a token lands decides its weight — a word in the
+   product name massively outranks brand text or a spec ref like "120led" */
+function wordScore(tok,w,digitTok){
+  if(w===tok) return 100;
+  if(w.startsWith(tok)) return 88;
+  if(w.includes(tok)) return (!digitTok && /\d/.test(w)) ? 35 : 72;
+  return 0;
+}
+function tokenScore(item,tok){
+  const digitTok = /\d/.test(tok);
+  let best = 0;
+  const sweep = (t)=>{
+    for(const [ws,f] of item._fields)
+      for(const w of ws){
+        const s = wordScore(t,w,digitTok)*f;
+        if(s>best) best = s;
+      }
+  };
+  sweep(tok);
+  const alts = SYN.get(tok);
+  if(alts) for(const a of alts) sweep(a);
+  if(best || digitTok) return best;         // digits are identity — never fuzz codes
+  if(tok.length>=4){
+    const k = tok.length>=8 ? 2 : 1;
+    for(const [ws,f] of item._fields)
+      for(const w of ws)
+        if(!/\d/.test(w) && within(tok,w,k) && 45*f>best) best = 45*f;
+  }
+  if(best) return best;
+  if(tok.length>=3){
+    const ts = skeleton(tok);
+    if(ts.length>=3 && item._skels.some(s=>s.includes(ts))) best = 25;
+  }
+  return best;
+}
+function itemScore(item,tokens){
+  let sum = 0;
+  for(const tok of tokens){
+    const s = tokenScore(item,tok);
+    if(!s) return 0;                         // every token must land somewhere
+    sum += s;
+  }
+  return sum;
+}
+function rankSearch(pool,q,tiebreak){
+  const nq = normText(q);
+  if(!nq) return [];
+  const tokens = nq.split(" ");
+  const codeq = nq.replace(/ /g,"");
+  const collect = (tokenSets)=>{
+    const hits = [];
+    for(const i of pool){
+      let sc = 0;
+      for(const ts of tokenSets){ const s = itemScore(i,ts); if(s>sc) sc = s; }
+      if(!sc) continue;
+      if(i.code.startsWith(codeq)) sc += 1000;
+      hits.push([sc,i]);
+    }
+    hits.sort((a,b)=>(b[0]-a[0])||tiebreak(a[1],b[1]));
+    return hits.map(h=>h[1]);
+  };
+  const full = collect([tokens]);
+  if(full.length || tokens.length<2) return full;
+  // no item carries every word — degrade once to all-but-one so the user
+  // still lands near what they meant instead of a dead "no results"
+  return collect(tokens.map((_,k)=>tokens.filter((_,j)=>j!==k)));
+}
+/* ================== end search engine ================== */
+
+function render(){
+  const list = document.getElementById("list");
+  const q = query.trim();
+  let rows = items;
+  if(activeFilter!=="ALL") rows = rows.filter(i=>i.status===activeFilter);
+  if(activeBrand!=="ALL")  rows = rows.filter(i=>(i.brand||"")===activeBrand);
+  if(q) rows = rankSearch(rows, q, severityCmp);   // relevance bands, severity inside
+  if(sortMode!=="default")                          // explicit qty sort beats everything
+    rows = [...rows].sort((a,b)=> sortMode==="qty_desc" ? b.qty-a.qty : a.qty-b.qty);
+  saveState();
+  document.getElementById("count").textContent = t("count")(rows.length);
+  if(!rows.length){
+    list.innerHTML = `<div class="state">${t("no_results")}</div>`;
+    return;
+  }
+  list.innerHTML = rows.slice(0,400).map(i=>`
+    <div class="item ${i.status}">
+      ${i.image_url ? `<img class="thumb" src="${i.image_url}" loading="lazy" alt=""
+                            onclick="showLightbox('${i.image_url}')" onerror="this.remove()">` : ""}
+      <div class="info">
+        <div class="name">${i.name || i.latin_name || i.code}</div>
+        <div class="meta">${i.code}${i.latin_name ? " · "+i.latin_name : ""}</div>
+        ${storeLineHtml(i)}
+      </div>
+      <div class="side">
+        <div class="qty">${fmtQty(i.qty)}</div>
+        <div class="unit">${i.unit || ""}</div>
+        <div class="tag ${i.status}">${statusLabel(i.status)}</div>
+        ${i.months_cover!=null && i.status!=="UNTRACKED"
+          ? `<div class="cover">${t("cover")(i.months_cover)}</div>` : ""}
+        ${i.cost!=null && i.cost>0
+          ? `<div class="cost">${t("cost")(Number(i.cost).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}))}</div>` : ""}
+      </div>
+    </div>`).join("");
+  if(rows.length>400)
+    list.innerHTML += `<div class="state">${t("more_rows")(rows.length-400)}</div>`;
+}
+
+function renderChips(){
+  const counts = {ALL: items.length};
+  for(const f of FILTERS.slice(1)) counts[f] = items.filter(i=>i.status===f).length;
+  document.getElementById("chips").innerHTML = FILTERS.map(f=>`
+    <span class="chip ${f===activeFilter?"active":""}" data-f="${f}">
+      ${filterLabel(f)}<span class="n">${counts[f]}</span>
+    </span>`).join("");
+  document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{
+    activeFilter=c.dataset.f; renderChips(); render();
+  });
+}
+
+function populateBrands(){
+  /* daily-workflow brands first (Qusay's frequency order, Jul 14 2026),
+     then the rest alphabetically — labels match dashboard_items.brand exactly */
+  const BRAND_PRIORITY = ["Megaman","Lightware","LEDs C4","Energetic"];
+  const brandRank = b => { const i = BRAND_PRIORITY.indexOf(b); return i === -1 ? BRAND_PRIORITY.length : i; };
+  const brands = [...new Set(items.map(i=>i.brand).filter(Boolean))]
+    .sort((a,b)=>brandRank(a)-brandRank(b) || a.localeCompare(b,'ar'));
+  const optionsContainer = document.getElementById("brand-options");
+  const trigger = document.getElementById("brand-trigger");
+  const wrapper = document.getElementById("brand-wrapper");
+
+  // Build the HTML for the options
+  let html = `<div class="custom-option selected" data-value="ALL">${t("all_brands")}</div>`;
+  html += brands.map(b=>`<div class="custom-option" data-value="${b}">${b}</div>`).join("");
+  optionsContainer.innerHTML = html;
+
+  // Toggle dropdown visibility when clicking the box
+  trigger.onclick = () => optionsContainer.classList.toggle("open");
+
+  // Handle clicking an option
+  optionsContainer.querySelectorAll(".custom-option").forEach(opt => {
+    opt.onclick = function() {
+      activeBrand = this.dataset.value;
+      trigger.textContent = this.textContent;
+      optionsContainer.classList.remove("open");
+
+      // Move the amber highlight to the selected option
+      optionsContainer.querySelectorAll(".custom-option").forEach(o => o.classList.remove("selected"));
+      this.classList.add("selected");
+
+      render();
+    };
+  });
+
+  // Close the menu if the user taps anywhere else on the screen
+  document.addEventListener("click", (e) => {
+    if (!wrapper.contains(e.target)) {
+      optionsContainer.classList.remove("open");
+    }
+  });
+}
+
+/* ---------- language: paint static chrome + flip direction ----------
+   Everything dynamic re-renders through t(); this handles the fixed markup.
+   Called once at boot and again on every toggle — no reload, so the user
+   keeps their search, filters, sort and scroll position. */
+function applyLang(){
+  const d = DICT[lang];
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  document.title = d.title;
+  document.getElementById("langbtn").textContent = d.lang_btn;
+  document.getElementById("authbtn").title = d.cost_title;
+  document.getElementById("auth-title").textContent = d.auth_title;
+  document.getElementById("auth-email").placeholder = d.auth_email;
+  document.getElementById("auth-pass").placeholder = d.auth_pass;
+  document.getElementById("auth-go").textContent = d.auth_go;
+  document.getElementById("search").placeholder = d.search_ph;
+  document.querySelector("#lightbox .close").setAttribute("aria-label", d.close);
+}
+
+document.getElementById("langbtn").onclick = ()=>{
+  lang = lang === "ar" ? "en" : "ar";
+  try { localStorage.setItem(LANG_KEY, lang); } catch { /* private mode — session only */ }
+  const y = window.scrollY;
+  applyLang();
+  syncSortPill();
+  // brand trigger: re-label only if it's still on "all" (a picked brand is a
+  // data value — «Megaman» reads the same in both languages)
+  const trig = document.getElementById("brand-trigger");
+  if(activeBrand === "ALL") trig.textContent = DICT[lang].all_brands;
+  const allOpt = document.querySelector('#brand-options .custom-option[data-value="ALL"]');
+  if(allOpt) allOpt.textContent = DICT[lang].all_brands;
+  const stale = document.getElementById("stalewarn");
+  if(stale && stale.dataset.age) stale.textContent = DICT[lang].stale(stale.dataset.age);
+  const syncEl = document.getElementById("sync");
+  if(syncEl.dataset.iso){
+    syncEl.textContent = DICT[lang].last_sync + " " +
+      new Date(syncEl.dataset.iso).toLocaleString(DICT[lang].locale,{dateStyle:"short",timeStyle:"short"});
+  }
+  renderChips(); render();
+  window.scrollTo(0, y);
+};
+
+/* ---------- qty sort pill ---------- */
+const SORT_KEYS = {default:"sort_default", qty_desc:"sort_desc", qty_asc:"sort_asc"};
+function syncSortPill(){
+  const p = document.getElementById("sortpill");
+  p.textContent = t(SORT_KEYS[sortMode]);
+  p.title = t("sort_title");
+  p.classList.toggle("active", sortMode!=="default");
+}
+document.getElementById("sortpill").onclick = ()=>{
+  sortMode = sortMode==="default" ? "qty_desc" : sortMode==="qty_desc" ? "qty_asc" : "default";
+  syncSortPill(); render();
+};
+
+(async function init(){
+  applyLang();
+  try{
+    await fetchLocs();               // shelf labels (team-only, quiet if absent)
+    items = buildItemIndex(await fetchAll());
+    // UNTRACKED sorts for dead-stock visibility; all other statuses keep lowest/negative-first
+    items.sort(severityCmp);
+    const latest = items.reduce((m,i)=> i.synced_at>m ? i.synced_at : m, "");
+    if(latest){
+      const d = new Date(latest);
+      const syncEl = document.getElementById("sync");
+      syncEl.dataset.iso = latest;
+      syncEl.textContent =
+        t("last_sync") + " " + d.toLocaleString(t("locale"),{dateStyle:"short",timeStyle:"short"});
+      // dead-man banner: the hourly sync (Qusay's PC) failing must be VISIBLE,
+      // not silent stale numbers. >3h old during business hours = something's
+      // down. Overnight staleness is normal (sync sleeps 21:00→9:00) — the
+      // 10:00–21:00 local-hour guard keeps mornings quiet.
+      const ageH = (Date.now() - d.getTime()) / 3600000;
+      const hour = new Date().getHours();
+      if(ageH > 3 && hour >= 10 && hour < 21){
+        const warn = document.createElement("div");
+        warn.style.cssText = "background:#7a1f1f;color:#ffd9d9;padding:10px 14px;"+
+          "border-radius:10px;margin:10px 12px 0;font-size:14px;text-align:center;font-weight:600";
+        warn.id = "stalewarn";
+        warn.dataset.age = Math.round(ageH);
+        warn.textContent = t("stale")(Math.round(ageH));
+        const list = document.getElementById("list");
+        list.parentNode.insertBefore(warn, list);
+      }
+    }
+    // restore the last session (search + filters + sort + scroll) BEFORE first paint
+    const saved = loadState();
+    if(saved){
+      query = saved.q || "";
+      activeFilter = FILTERS.includes(saved.status) ? saved.status : "ALL";
+      sortMode = (saved.sort in SORT_KEYS) ? saved.sort : "default";
+      document.getElementById("search").value = query;
+      syncSortPill();
+    }
+    populateBrands();
+    if(saved && saved.brand && saved.brand!=="ALL"){
+      const opt = [...document.querySelectorAll("#brand-options .custom-option")]
+        .find(o=>o.dataset.value===saved.brand);
+      if(opt){
+        activeBrand = saved.brand;
+        document.getElementById("brand-trigger").textContent = opt.textContent;
+        document.querySelectorAll("#brand-options .custom-option").forEach(o=>o.classList.remove("selected"));
+        opt.classList.add("selected");
+      }
+    }
+    renderChips(); render();
+    if(saved && saved.scroll) requestAnimationFrame(()=>window.scrollTo(0, saved.scroll));
+  }catch(e){
+    document.getElementById("list").innerHTML =
+      `<div class="state">${t("load_err")}<br><small style="direction:ltr">${e.message}</small></div>`;
+  }
+})();
+
+document.getElementById("search").addEventListener("input", e=>{
+  query = e.target.value; render();
+});
+let scrollT = null;
+window.addEventListener("scroll", ()=>{
+  clearTimeout(scrollT); scrollT = setTimeout(saveState, 250);
+}, {passive:true});
+
+/* ---------- team login: unlocks the cost column ---------- */
+const authbox = document.getElementById("authbox");
+function syncAuthBtn(){
+  document.getElementById("authbtn").textContent = savedAuth() ? "🔓" : "🔒";
+}
+document.getElementById("authbtn").onclick = ()=>{
+  if(savedAuth()){
+    if(confirm(t("logout_confirm"))){
+      localStorage.removeItem(AUTH_KEY); location.reload();
+    }
+    return;
+  }
+  authbox.classList.add("open");
+  document.getElementById("auth-email").focus();
+};
+authbox.addEventListener("click", ()=> authbox.classList.remove("open"));
+document.getElementById("auth-go").onclick = async ()=>{
+  const email = document.getElementById("auth-email").value.trim();
+  const pass  = document.getElementById("auth-pass").value;
+  const err   = document.getElementById("auth-err");
+  err.textContent = "";
+  try{
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{
+      method:"POST", headers:{apikey:SUPABASE_ANON_KEY,"Content-Type":"application/json"},
+      body: JSON.stringify({email, password: pass})
+    });
+    if(!r.ok) throw new Error();
+    localStorage.setItem(AUTH_KEY, JSON.stringify(await r.json()));
+    location.reload();   // refetch with cost
+  }catch{
+    err.textContent = t("auth_err");
+  }
+};
+syncAuthBtn();
+
+/* ---------- lightbox: tap thumb to zoom, tap anywhere to close ---------- */
+function showLightbox(url){
+  document.getElementById("lightbox-img").src = url;
+  document.getElementById("lightbox").classList.add("open");
+}
+document.getElementById("lightbox").addEventListener("click", ()=>{
+  document.getElementById("lightbox").classList.remove("open");
+  document.getElementById("lightbox-img").src = "";
+});
+</script>
+</body>
+</html>
