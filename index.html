@@ -417,6 +417,9 @@ function normText(s){
   return t.replace(/[^0-9a-z؀-ۿ]+/g," ").trim();
 }
 const AR_MAP = {"ب":"b","ت":"t","ث":"t","ج":"j","ح":"h","خ":"k","د":"d","ذ":"z","ر":"r","ز":"z","س":"s","ش":"s","ص":"s","ض":"d","ط":"t","ظ":"z","غ":"g","ف":"f","ق":"k","ك":"k","ل":"l","م":"m","ن":"n","ه":"h"};
+/* «Arabizi» digits — only BETWEEN two Latin letters. A leading/trailing digit
+   belongs to a code or spec ("1507","120led") and must stay a digit. */
+const ARABIZI = {"2":"","3":"","4":"z","5":"k","6":"t","7":"h","8":"g","9":"k"};
 function skeleton(word){
   if(/[؀-ۿ]/.test(word)){
     let out = "";
@@ -424,11 +427,13 @@ function skeleton(word){
     return out;
   }
   let t = word
+    .replace(/(?<=[a-z])[2-9](?=[a-z])/g, d => ARABIZI[d] ?? d)
     .replace(/kh/g,"k").replace(/sh/g,"s").replace(/ch/g,"s")
     .replace(/th/g,"t").replace(/dh/g,"z").replace(/gh/g,"g")
     .replace(/ph/g,"f").replace(/q/g,"k").replace(/c/g,"k")
     .replace(/p/g,"b").replace(/v/g,"f")
-    .replace(/[aeiouwy]/g,"");
+    .replace(/[aeiouwy]/g,"")
+    .replace(/[^a-z]/g,"");
   let out = "";
   for(const ch of t) if(ch !== out[out.length-1]) out += ch;
   return out;
@@ -450,13 +455,28 @@ function within(a,b,k){
 /* Curated category bridge — normalized forms only. Translation table, not a
    thesaurus: only words naming a real category in THIS catalog. Ranks equal
    to the literal word, so "led" ≡ «ليد» and stock/severity decides. */
+/* Also carries ROMANIZED Arabic spellings for English-only keyboards.
+   ⚠ NEVER add a 1-2 letter entry — synonyms substring-match, so «لد» pulled
+   in خالد/خلدون when it was tried (Aug 7 2026). */
 const SYN_GROUPS = [
-  ["led","ليد"],["strip","ستريب","شريط"],["spot","سبوت"],["lamp","bulb","لمبه"],
-  ["chandelier","ثريا"],["pendant","نازله"],["sconce","applique","ابليك"],
-  ["floodlight","projector","كشاف"],["panel","بلافونه","بانل"],["track","سكه"],
-  ["magnetic","magnet","مغناطيس"],["stand","ستاند"],["lantern","فانوس"],
-  ["crystal","كريستال"],["cable","كبل"],["driver","درايفر","محول"],["mirror","مرايه"],
+  ["led","ليد"],["strip","ستريب","شريط","sharit"],["spot","سبوت","sbot"],
+  ["lamp","bulb","لمبه","lamba","lambe"],
+  ["chandelier","ثريا","thuraya","thurayya","turaya","sourayya"],
+  ["pendant","نازله","nazla","nazle"],["sconce","applique","ابليك","ablik","abliq"],
+  ["floodlight","projector","كشاف","kashaf","kashef"],
+  ["panel","بلافونه","بانل","blafone","plafone"],["track","سكه","sekke","seke"],
+  ["magnetic","magnet","مغناطيس","meghnatis","maghnatees"],["stand","ستاند"],
+  ["lantern","فانوس","fanous","fanos"],["crystal","كريستال","kristal"],
+  ["cable","كبل","kabl","kabel"],["driver","درايفر","محول","mhawel","muhawil"],
+  ["mirror","مرايه","maraya","mraye"],["wire","سلك","silk","selek"],
+  ["socket","ابريز","abriz","breez"],["switch","مفتاح","meftah","muftah"],
 ];
+/* An Arabic word with the definite article ال is also offered without it. */
+function skeletonsOf(word){
+  const out = [skeleton(word)];
+  if(/^ال./.test(word)) out.push(skeleton(word.slice(2)));
+  return out.filter(Boolean);
+}
 const SYN = new Map();
 for(const g of SYN_GROUPS) for(const w of g) SYN.set(w, g.filter(x=>x!==w));
 
@@ -468,7 +488,7 @@ function buildItemIndex(list){
       [idxWords(i.latin_name), 0.85],              // supplier ref
       [idxWords(i.brand), 0.55],                   // context only
     ];
-    i._skels = i._fields.flatMap(([ws])=>ws).map(skeleton).filter(s=>s.length>=3);
+    i._skels = i._fields.flatMap(([ws])=>ws).flatMap(skeletonsOf);
   }
   return list;
 }
@@ -503,7 +523,10 @@ function tokenScore(item,tok){
   if(best) return best;
   if(tok.length>=3){
     const ts = skeleton(tok);
-    if(ts.length>=3 && item._skels.some(s=>s.includes(ts))) best = 25;
+    /* 3-consonant floor for exact too: 2 consonants cannot identify a word
+       across 2,787 items ("tr" = ثريا but also اطار and the ref YTTR03). */
+    if(ts.length>=3 && item._skels.some(s=>s===ts)) best = 60;
+    else if(ts.length>=3 && item._skels.some(s=>s.includes(ts))) best = 25;
   }
   return best;
 }
