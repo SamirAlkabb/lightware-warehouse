@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- iOS paints the strip behind the clock/battery with this; without it the page
+     got the default light chrome above its dark header. Matches the TOP of the
+     sticky header's gradient below. -->
+<meta name="theme-color" content="#221D16">
 <title>Lightware — المستودع</title>
 <style>
   :root{
@@ -467,7 +471,14 @@ const SYN_GROUPS = [
   ["panel","بلافونه","بانل","blafone","plafone"],["track","سكه","sekke","seke"],
   ["magnetic","magnet","مغناطيس","meghnatis","maghnatees"],["stand","ستاند"],
   ["lantern","فانوس","fanous","fanos"],["crystal","كريستال","kristal"],
-  ["cable","كبل","kabl","kabel"],["driver","درايفر","محول","mhawel","muhawil"],
+  // colour temperature + colours: «شمسي»/«ضوء النهار» are how the shop writes
+  // warm/daylight, while other items carry 3000K/4000K — neither could find
+  // the other, and together they are a fifth of all sale-bill lines.
+  ["شمسي","shamsi","warm","3000k"],["النهار","daylight","4000k"],
+  ["ابيض","white","abyad"],["اسود","black","aswad"],
+  ["ذهبي","gold","golden","dahabi"],["كروم","chrome","krom"],
+  ["cable","كبل","kabl","kabel"],
+  ["driver","درايفر","محول","mhawel","muhawil","طرانس","ترانس","طرنس","trans","transformer","tarans"],
   ["mirror","مرايه","maraya","mraye"],["wire","سلك","silk","selek"],
   ["socket","ابريز","abriz","breez"],["switch","مفتاح","meftah","muftah"],
 ];
