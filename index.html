@@ -369,6 +369,38 @@ async function fetchLocs(){
   } catch(e){ /* internal extra — never block the public dashboard */ }
 }
 
+/* نظام الفروع: branch registry (team-only, quiet pre-paste). Cards get a
+   per-branch aggregate line ONLY when more than one branch is active — in
+   single-branch mode (today) this renders nothing and the page is
+   byte-identical. Store→branch rule mirrors src/branches.js: an active
+   spoke owns the stores it lists; everything else — including stores Qusay
+   creates tomorrow — is the hub's. */
+let branchList = [];
+async function fetchBranchList(){
+  const tk = await getToken();
+  if(!tk) return;
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/branches?select=id,name,kind,active,stores&order=id`,
+      { headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${tk}` } });
+    if(r.ok) branchList = await r.json();
+  }catch(e){ /* quiet — the storetags still tell the whole story */ }
+}
+function branchLineHtml(i){
+  const act = branchList.filter(b=>b.active);
+  if(act.length < 2 || !i.stock_by_store) return "";
+  const hub = act.find(b=>b.kind==="hub") || act[0];
+  const map = {};
+  for(const b of act){ if(b.kind==="hub") continue; for(const s of (b.stores||[])) map[s]=b.id; }
+  const per = {};
+  for(const [s,q] of Object.entries(i.stock_by_store)){
+    const id = map[s] || hub.id;
+    per[id] = (per[id]||0) + Number(q||0);
+  }
+  const tags = act.filter(b=>per[b.id]).map(b=>
+    `<span class="storetag">🏬 ${escHtml(b.name)} <b>${fmtStoreQty(per[b.id])}</b></span>`).join("");
+  return tags ? `<div class="stores">${tags}</div>` : "";
+}
+
 /* «مستودع المكتب» → «المكتب» + merge per-store qty with shelf labels */
 const shortStore = s => (s||"").replace(/^مستودع\s+/, "");
 /* shelf labels are STAFF-TYPED free text and this page renders via innerHTML
@@ -597,7 +629,7 @@ function render(){
       <div class="info">
         <div class="name">${i.name || i.latin_name || i.code}</div>
         <div class="meta">${i.code}${i.latin_name ? " · "+i.latin_name : ""}</div>
-        ${storeLineHtml(i)}
+        ${branchLineHtml(i)}${storeLineHtml(i)}
       </div>
       <div class="side">
         <div class="qty">${fmtQty(i.qty)}</div>
@@ -726,6 +758,7 @@ document.getElementById("sortpill").onclick = ()=>{
   applyLang();
   try{
     await fetchLocs();               // shelf labels (team-only, quiet if absent)
+    await fetchBranchList();         // branch registry (multi-branch cards, quiet if absent)
     items = buildItemIndex(await fetchAll());
     // UNTRACKED sorts for dead-stock visibility; all other statuses keep lowest/negative-first
     items.sort(severityCmp);
