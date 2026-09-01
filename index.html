@@ -157,6 +157,7 @@
     <span class="wordmark">LIGHTWARE<span class="dot">.</span></span>
     <span style="display:flex;align-items:center;gap:10px">
       <span class="sync" id="sync">…</span>
+      <a class="authbtn" id="reorderbtn" href="reorder.html" hidden style="text-decoration:none">📦</a>
       <button class="authbtn" id="langbtn">EN</button>
       <button class="authbtn" id="authbtn">🔒</button>
     </span>
@@ -216,6 +217,7 @@ const DICT = {
   ar: {
     title:"Lightware — المستودع",
     cost_title:"عرض الكلفة (لفريق المحل)",
+    reorder_title:"طلبية إعادة التوريد",
     auth_title:"تسجيل دخول الفريق — لعرض الكلفة",
     auth_email:"الإيميل", auth_pass:"كلمة السر", auth_go:"دخول",
     auth_err:"ما زبط — تأكد من الإيميل وكلمة السر.",
@@ -242,6 +244,7 @@ const DICT = {
   en: {
     title:"Lightware — Warehouse",
     cost_title:"Show cost (team only)",
+    reorder_title:"Reorder planner",
     auth_title:"Team sign-in — to see cost",
     auth_email:"Email", auth_pass:"Password", auth_go:"Sign in",
     auth_err:"Didn't work — check the email and password.",
@@ -825,7 +828,11 @@ window.addEventListener("scroll", ()=>{
 /* ---------- team login: unlocks the cost column ---------- */
 const authbox = document.getElementById("authbox");
 function syncAuthBtn(){
-  document.getElementById("authbtn").textContent = savedAuth() ? "🔓" : "🔒";
+  const inn = !!savedAuth();
+  document.getElementById("authbtn").textContent = inn ? "🔓" : "🔒";
+  // the reorder planner prices the order at cost — team only, like the cost column
+  const rb = document.getElementById("reorderbtn");
+  rb.hidden = !inn; rb.title = t("reorder_title");
 }
 document.getElementById("authbtn").onclick = ()=>{
   if(savedAuth()){

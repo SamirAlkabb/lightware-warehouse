@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#221D16">
+<title>Lightware — طلبية إعادة التوريد</title>
+<!--
+  Reorder planner (Sep 1 2026). The interactive successor of the Aug-31
+  «طلبية إعادة التوريد» workbook: the same demand rule, computed LIVE off the
+  hourly sync, with checkboxes → a draft → per-brand Excel/PDF files → ZIP.
+
+  Ships beside index.html on warehouse.lightwaresy.com. TEAM ONLY: it prices
+  the order at cost, so the whole page sits behind the dashboard's login
+  (shared localStorage key lw_dash_auth — one sign-in serves both pages).
+
+  Zero dependencies by design: reorder_engine.js carries the engine and the
+  XLSX / ZIP / PDF writers, and everything is hand-rolled so the page needs no
+  CDN (Syrian connectivity) and no build step (the warehouse app has none).
+-->
+<style>
+  :root{
+    --ink:#1C1813; --paper:#F8F4EC; --amber:#E8870B; --glow:#FCEDD8;
+    --card:#FFFFFF; --line:#E9E1D1; --muted:#8B8170; --cream:#F6F1E7;
+    --chrome:#262019; --chrome-line:#3D352A;
+    --out-bg:#F6D5CE; --out-tx:#9E2B14; --crit-bg:#FBE0C4; --crit-tx:#8A5A00;
+    --soon-bg:#FFF4CC; --soon-tx:#7A6314; --proj-bg:#E9E4F5; --proj-tx:#4B3F7A;
+    --input:#FFF9D6; --green:#219653;
+    --shadow-1:0 1px 2px rgba(28,24,19,.05), 0 3px 10px rgba(28,24,19,.04);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{margin:0; background:var(--paper); color:var(--ink);
+       font-family:-apple-system,"Segoe UI",system-ui,"Noto Sans Arabic",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .num{font-variant-numeric:tabular-nums; direction:ltr; unicode-bidi:isolate}
+  a{color:inherit}
+
+  header{background:linear-gradient(180deg,#221D16,#1C1813 68%); color:var(--glow);
+         padding:14px 16px 12px; position:sticky; top:0; z-index:20;
+         box-shadow:0 1px 0 rgba(232,135,11,.16)}
+  .brand{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .wordmark{font-size:16px; font-weight:300; letter-spacing:4px; color:#F2ECDF; white-space:nowrap; direction:ltr; unicode-bidi:embed}
+  .wordmark .dot{color:var(--amber); font-weight:600; letter-spacing:0}
+  .pagename{font-size:13px; color:#C9A871; margin-inline-start:12px}
+  .hbtns{display:flex; align-items:center; gap:8px}
+  .authbtn{background:none; border:1px solid #3a352e; border-radius:8px; padding:4px 9px; font-size:14px; cursor:pointer; color:inherit; text-decoration:none; font-family:inherit}
+
+  /* ---------- sign-in gate ---------- */
+  .gate{max-width:420px; margin:48px auto; padding:0 16px}
+  .authcard{background:#1D1915; color:var(--glow); border:1px solid #3a352e; border-radius:14px; padding:20px; display:flex; flex-direction:column; gap:10px}
+  .authcard input{background:#16130F; border:1px solid #3a352e; border-radius:10px; padding:10px 12px; color:inherit; font:inherit}
+  .authgo{background:var(--amber); color:#1a1a1a; font-weight:700; border:none; border-radius:10px; padding:11px; cursor:pointer; font:inherit}
+  .autherr{color:#E07B6A; font-size:12px; min-height:14px}
+  .gatenote{font-size:12.5px; color:#A89E8C; line-height:1.6}
+
+  /* ---------- top: tiles + toolbar (dark) ---------- */
+  .top{background:#1C1813; color:var(--glow); padding:12px 16px 4px}
+  .tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+  .tile{background:var(--chrome); border:1px solid var(--chrome-line); border-radius:12px; padding:10px 12px; text-align:center}
+  .tile .v{font-size:22px; font-weight:700; line-height:1.15}
+  .tile .l{font-size:11px; color:#C9A871; margin-top:3px}
+  .tile.out .v{color:#FF9C8A}
+  .sub{font-size:11.5px; color:#A89E8C; margin:8px 2px 4px; display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center}
+  .sub .refresh{background:none; border:1px solid var(--chrome-line); color:#C9A871; border-radius:8px; padding:3px 9px; cursor:pointer; font:inherit; font-size:12px}
+  .stalewarn{background:#7a1f1f; color:#ffd9d9; padding:9px 14px; border-radius:10px; margin:8px 0 4px; font-size:13.5px; text-align:center; font-weight:600}
+  .toolbar{display:flex; gap:8px; padding:8px 0 4px; flex-wrap:wrap}
+  .toolbar input[type=search]{flex:2 1 220px; padding:11px 14px; font-size:15px; border:none; border-radius:12px; background:var(--chrome); color:var(--glow); outline:none; box-shadow:inset 0 0 0 1px var(--chrome-line); font-family:inherit}
+  .toolbar input::placeholder{color:#7d7568}
+  .toolbar input:focus{box-shadow:0 0 0 2px var(--amber)}
+  .sel{flex:1 1 150px; padding:11px 12px; font-size:14px; border:none; border-radius:12px; background:var(--chrome); color:var(--glow); box-shadow:inset 0 0 0 1px var(--chrome-line); font-family:inherit; cursor:pointer;
+       -webkit-appearance:none; appearance:none}
+  /* ⚠ native <select> option menus render at the OS layer on macOS Chrome — the
+     dashboard replaced them with a custom list for that reason. This page is a
+     laptop tool where the option text is short Latin brand names, and the
+     values are painted by the OS (readable), so a native select is fine here. */
+  .chips{display:flex; gap:8px; overflow-x:auto; padding:6px 0 8px; scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto; padding:6px 13px; border-radius:999px; font-size:13px; border:1px solid var(--chrome-line); background:var(--chrome); color:#CFC6B4; cursor:pointer; user-select:none; font-family:inherit}
+  .chip .n{opacity:.7; font-size:11px; margin-inline-start:4px}
+  .chip.active{background:linear-gradient(180deg,#F09A22,var(--amber)); border-color:#C9720A; color:#211505; font-weight:600}
+  .chip.flag.active{background:#3F3527; border-color:var(--amber); color:var(--glow)}
+
+  /* ---------- list ---------- */
+  main{padding:10px 12px 120px; max-width:1180px; margin:0 auto}
+  .bulkbar{position:sticky; top:62px; z-index:15; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+           background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 12px; margin:6px 0 10px; box-shadow:var(--shadow-1)}
+  .bulkbar label{display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer}
+  .bulkbar .cnt{font-size:13px; color:var(--muted); margin-inline-start:auto}
+  .btn{border:none; border-radius:10px; padding:9px 14px; font:inherit; font-size:14px; cursor:pointer; background:var(--cream); color:var(--ink); font-weight:600}
+  .btn.primary{background:linear-gradient(180deg,#F09A22,var(--amber)); color:#211505; box-shadow:0 2px 8px rgba(232,135,11,.3)}
+  .btn.ghost{background:none; color:var(--muted)}
+  .btn.danger{background:#F6D5CE; color:var(--out-tx)}
+  .btn:disabled{opacity:.45; cursor:default; box-shadow:none}
+  .btn.sm{padding:5px 9px; font-size:12.5px; border-radius:8px}
+  input[type=checkbox]{width:18px; height:18px; accent-color:var(--amber); cursor:pointer; margin:0}
+
+  .tablewrap{overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-1)}
+  table.ro{width:100%; border-collapse:collapse; font-size:13.5px; min-width:760px}
+  table.ro th{position:sticky; top:0; background:#FBF7EE; color:var(--muted); font-weight:600; font-size:12px; padding:9px 8px; border-bottom:1px solid var(--line); white-space:nowrap; text-align:center; z-index:1}
+  table.ro th.name, table.ro td.name{text-align:start}
+  table.ro td{padding:8px 8px; border-bottom:1px solid var(--line); text-align:center; vertical-align:middle}
+  table.ro tr:hover td{background:#FDFBF6}
+  table.ro tr.indraft td{background:#FFF9E8}
+  table.ro tr.checked td{background:#FFF3DA}
+  td.name .nm{font-weight:600; line-height:1.3}
+  td.name .meta{font-size:11.5px; color:var(--muted); direction:ltr; text-align:start; margin-top:2px}
+  td.name .flags{margin-top:4px; display:flex; flex-wrap:wrap; gap:4px}
+  .fl{font-size:10.5px; padding:1px 7px; border-radius:6px; background:#F4F0E8; color:#6B6152; border:1px solid var(--line); white-space:nowrap}
+  .fl.new{background:#E3F1E7; color:#1E6B3A; border-color:#C5E0CE}
+  .fl.seas{background:#E0EEF9; color:#1D5A8A; border-color:#C2DAEE}
+  .fl.rare{background:#F6EBD9; color:#8A5A00; border-color:#EAD3AE}
+  .fl.proj{background:var(--proj-bg); color:var(--proj-tx); border-color:#D6CDEB}
+  .fl.nocost{background:#F6D5CE; color:var(--out-tx); border-color:#EEC0B5}
+  .fl.draft{background:#1C1813; color:var(--glow); border-color:#1C1813}
+  .pill{display:inline-block; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700; white-space:nowrap}
+  .pill.نفد{background:var(--out-bg); color:var(--out-tx)} .pill.حرج{background:var(--crit-bg); color:var(--crit-tx)}
+  .pill.قريب{background:var(--soon-bg); color:var(--soon-tx)} .pill.proj{background:var(--proj-bg); color:var(--proj-tx)}
+  td.sug{font-weight:700; font-size:15px}
+  td.cost, td.val{color:#3E7A3E; font-weight:600}
+  .state{padding:40px 20px; text-align:center; color:var(--muted); font-size:15px}
+  @media (max-width:760px){ .col-lo{display:none} .tiles{grid-template-columns:repeat(2,1fr)} .bulkbar{top:58px} table.ro{min-width:0} td.name .nm{font-size:13px} table.ro td{padding:8px 5px} }
+
+  details.sect{background:var(--card); border:1px solid var(--line); border-radius:12px; margin:14px 0; box-shadow:var(--shadow-1)}
+  details.sect summary{padding:12px 14px; font-weight:700; cursor:pointer; list-style:none; display:flex; align-items:center; gap:10px}
+  details.sect summary::-webkit-details-marker{display:none}
+  details.sect summary .n{color:var(--muted); font-weight:500; font-size:13px}
+  details.sect summary::after{content:"▾"; margin-inline-start:auto; color:var(--muted)}
+  details.sect[open] summary::after{content:"▴"}
+  details.sect .body{padding:0 14px 14px; font-size:13.5px; line-height:1.75}
+  details.sect .body ul{margin:0; padding-inline-start:18px}
+  .note{background:var(--cream); border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px; margin:0 0 10px; line-height:1.7}
+
+  /* ---------- draft drawer ---------- */
+  .fab{position:fixed; bottom:18px; inset-inline-end:18px; z-index:30; border:none; border-radius:999px; padding:14px 20px; font:inherit; font-size:15px; font-weight:700;
+       background:var(--ink); color:var(--glow); box-shadow:0 6px 24px rgba(28,24,19,.35); cursor:pointer; display:flex; align-items:center; gap:8px}
+  .fab .n{background:var(--amber); color:#211505; border-radius:999px; padding:2px 9px; font-size:13px}
+  .scrim{position:fixed; inset:0; background:rgba(20,16,12,.45); z-index:40; display:none}
+  .scrim.open{display:block}
+  .drawer{position:fixed; top:0; bottom:0; inset-inline-start:0; width:min(560px,100vw); background:var(--paper); z-index:50; display:flex; flex-direction:column;
+          transform:translateX(-105%); transition:transform .22s ease; box-shadow:0 0 40px rgba(0,0,0,.35)}
+  html[dir="ltr"] .drawer{transform:translateX(-105%)}
+  html[dir="rtl"] .drawer{transform:translateX(105%)}
+  .drawer.open{transform:translateX(0) !important}
+  .dhead{background:#1C1813; color:var(--glow); padding:14px 16px; display:flex; align-items:center; gap:10px}
+  .dhead .ttl{font-weight:700; font-size:16px}
+  .dhead .tot{font-size:12.5px; color:#C9A871}
+  .dhead .x{margin-inline-start:auto; background:none; border:1px solid #3a352e; color:inherit; border-radius:8px; width:34px; height:34px; cursor:pointer; font-size:16px}
+  .dchips{padding:8px 12px 0; background:#1C1813}
+  .dbody{flex:1; overflow-y:auto; padding:10px 12px 12px}
+  .grp{background:var(--card); border:1px solid var(--line); border-radius:12px; margin-bottom:10px; overflow:hidden; box-shadow:var(--shadow-1)}
+  .ghead{display:flex; align-items:center; gap:8px; padding:10px 12px; background:#FBF7EE; border-bottom:1px solid var(--line); flex-wrap:wrap}
+  .ghead .b{font-weight:700; font-size:15px}
+  .ghead .o{font-size:12px; color:var(--muted)}
+  .ghead .v{margin-inline-start:auto; font-weight:700; color:#3E7A3E}
+  .ghead .ex{display:flex; gap:6px}
+  .dl{display:grid; grid-template-columns:1fr auto auto auto auto auto; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); font-size:13px}
+  .dl:last-child{border-bottom:none}
+  .dl .nm{font-weight:600; line-height:1.3}
+  .dl .mt{font-size:11px; color:var(--muted); direction:ltr; text-align:start}
+  .dl .st{font-size:11px; color:var(--muted); white-space:nowrap; text-align:center}
+  .dl .st b{display:block; font-size:13px; color:var(--ink)}
+  .dl input[type=number]{width:78px; padding:7px 8px; font:inherit; font-size:15px; font-weight:700; text-align:center; border:1px solid #E2CB7A; background:var(--input); border-radius:8px; direction:ltr}
+  .dl .ln{color:#3E7A3E; font-weight:700; white-space:nowrap; min-width:64px; text-align:center}
+  .dl .rm{background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:4px}
+  .dfoot{border-top:1px solid var(--line); background:var(--card); padding:10px 12px 14px; display:flex; flex-direction:column; gap:8px}
+  .dfoot .sum{display:flex; justify-content:space-between; font-size:14px; padding:0 2px}
+  .dfoot .sum b{font-size:17px; color:#3E7A3E}
+  .exgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .exgrid .btn{display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 8px; line-height:1.2}
+  .exgrid .btn small{font-weight:500; font-size:11px; color:var(--muted)}
+  .dfoot .row{display:flex; gap:8px; justify-content:space-between}
+  .busy{position:fixed; inset:0; z-index:60; background:rgba(28,24,19,.55); color:var(--glow); display:none; align-items:center; justify-content:center; font-size:16px; font-weight:600; flex-direction:column; gap:10px}
+  .busy.open{display:flex}
+  .toast{position:fixed; bottom:84px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--glow); padding:10px 16px; border-radius:10px; font-size:14px; z-index:70; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90vw; text-align:center}
+  .toast.show{opacity:1}
+  /* phone: the name gets the whole first row; the numbers share the second */
+  @media (max-width:560px){
+    .dl{grid-template-columns:auto auto 1fr auto auto; row-gap:6px}
+    .dl > div:first-child{grid-column:1/-1}
+    .dl input[type=number]{width:72px}
+  }
+  @media (prefers-reduced-motion:reduce){ .drawer{transition:none} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span><span class="wordmark">LIGHTWARE<span class="dot">.</span></span><span class="pagename" id="pagename"></span></span>
+    <span class="hbtns">
+      <a class="authbtn" href="index.html" id="backbtn" title="">📊</a>
+      <button class="authbtn" id="langbtn">EN</button>
+      <button class="authbtn" id="authbtn">🔒</button>
+    </span>
+  </div>
+</header>
+
+<div class="gate" id="gate" hidden>
+  <div class="authcard">
+    <div style="font-weight:700" id="auth-title"></div>
+    <div class="gatenote" id="auth-note"></div>
+    <input id="auth-email" type="email" dir="ltr" autocomplete="username">
+    <input id="auth-pass" type="password" dir="ltr" autocomplete="current-password">
+    <div class="autherr" id="auth-err"></div>
+    <button class="authgo" id="auth-go"></button>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <div class="top">
+    <div class="tiles">
+      <div class="tile"><div class="v num" id="t-lines">—</div><div class="l" id="tl-lines"></div></div>
+      <div class="tile"><div class="v num" id="t-units">—</div><div class="l" id="tl-units"></div></div>
+      <div class="tile"><div class="v num" id="t-val">—</div><div class="l" id="tl-val"></div></div>
+      <div class="tile out"><div class="v num" id="t-out">—</div><div class="l" id="tl-out"></div></div>
+    </div>
+    <div class="sub"><span id="sub-window"></span><span id="sub-stock"></span><button class="refresh" id="refresh"></button></div>
+    <div id="stalewarn" class="stalewarn" hidden></div>
+    <div class="toolbar">
+      <input id="search" type="search" autocomplete="off">
+      <select class="sel" id="brandsel"></select>
+      <select class="sel" id="sortsel"></select>
+    </div>
+    <div class="chips" id="urgchips"></div>
+    <div class="chips" id="flagchips"></div>
+  </div>
+
+  <main>
+    <div class="bulkbar">
+      <label><input type="checkbox" id="selall"><span id="selall-l"></span></label>
+      <span class="cnt" id="selcnt"></span>
+      <button class="btn primary" id="addsel" disabled></button>
+      <button class="btn ghost sm" id="clearsel" hidden></button>
+    </div>
+    <div class="tablewrap">
+      <table class="ro" id="rotable">
+        <thead><tr id="rohead"></tr></thead>
+        <tbody id="robody"><tr><td colspan="11" class="state" id="loading"></td></tr></tbody>
+      </table>
+    </div>
+
+    <details class="sect" id="projsect">
+      <summary><span id="proj-t"></span><span class="n" id="proj-n"></span></summary>
+      <div class="body">
+        <div class="note" id="proj-note"></div>
+        <div class="tablewrap"><table class="ro" id="projtable"><thead><tr id="projhead"></tr></thead><tbody id="projbody"></tbody></table></div>
+      </div>
+    </details>
+
+    <details class="sect" id="howsect">
+      <summary><span id="how-t"></span></summary>
+      <div class="body"><ul id="how-list"></ul></div>
+    </details>
+  </main>
+
+  <button class="fab" id="fab"><span id="fab-l"></span><span class="n" id="fabn">0</span></button>
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer" aria-label="draft">
+    <div class="dhead">
+      <div><div class="ttl" id="d-ttl"></div><div class="tot" id="d-tot"></div></div>
+      <button class="x" id="dclose">✕</button>
+    </div>
+    <div class="dchips"><div class="chips" id="dchips"></div></div>
+    <div class="dbody" id="dbody"></div>
+    <div class="dfoot">
+      <div class="sum"><span id="d-sum-l"></span><b class="num" id="d-sum-v">$0</b></div>
+      <div class="exgrid">
+        <button class="btn primary" id="ex-zip-xlsx"></button>
+        <button class="btn primary" id="ex-zip-pdf"></button>
+        <button class="btn" id="ex-full-xlsx"></button>
+        <button class="btn" id="ex-full-pdf"></button>
+      </div>
+      <div class="row"><button class="btn ghost sm" id="ex-all"></button><button class="btn danger sm" id="d-clear"></button></div>
+    </div>
+  </aside>
+</div>
+<div class="busy" id="busy"><div id="busy-t"></div><div style="font-size:12px;color:#C9A871" id="busy-s"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="reorder_engine.js"></script>
+<script>
+/* ================= CONFIG (same project as index.html) ================= */
+const SUPABASE_URL = "https://ohprikkwnymjtcxzoylq.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ocHJpa2t3bnltanRjeHpveWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNDQ5MjQsImV4cCI6MjA5ODkyMDkyNH0.0nI52H8ZV6fuj948WGk-ZLDVSgIu9y59_9R2a_jZST0";
+const AUTH_KEY = "lw_dash_auth";            // shared with index.html — one sign-in
+const LANG_KEY = "lw_dash_lang";
+const DRAFT_KEY = "lw_ro_draft_v1";
+const DEMAND_KEY = "lw_ro_demand_v1";
+const SEL_KEY = "lw_ro_sel_v1";
+const DEMAND_TTL = 12 * 3600e3;             // demand over 12 months barely moves hour to hour
+
+/* ================= i18n ================= */
+const DICT = {
+  ar: {
+    title:"Lightware — طلبية إعادة التوريد", pagename:"طلبية إعادة التوريد", back:"المستودع", lang_btn:"EN",
+    auth_title:"تسجيل دخول الفريق", auth_note:"هالصفحة بتسعّر الطلبية بالكلفة — للإدارة بس. نفس دخول شاشة المستودع.",
+    auth_email:"الإيميل", auth_pass:"كلمة السر", auth_go:"دخول", auth_err:"ما زبط — تأكد من الإيميل وكلمة السر.",
+    logout_confirm:"تسجيل خروج؟", cost_title:"تسجيل الخروج",
+    t_lines:"مادة مطلوبة", t_units:"إجمالي الكمية", t_val:"قيمة الطلبية (كلفة)", t_out:"نافدة تماماً",
+    window:(a,b)=>`محسوبة من مبيعات ${a} → ${b}`, stock:(s)=>`المخزون آخر مزامنة ${s}`, refresh:"↻ إعادة الحساب", computing:"عم نحسب من فواتير الأمين…",
+    stale:(h)=>`⚠ المخزون مو محدّث — آخر مزامنة قبل ${h} ساعات. لا تطلب عهالأرقام قبل ما تشيك عالمزامنة.`,
+    search_ph:"ابحث بالكود أو الاسم أو الماركة…", all_brands:"كل الماركات",
+    sort:{urg:"الأهم أولاً", val:"القيمة ⬇", brand:"حسب الماركة", cover:"الأقل تغطية", sug:"الكمية ⬇"},
+    urg:{ALL:"الكل", "نفد":"نفد", "حرج":"حرج", "قريب":"قريب"},
+    flags:{new:"جديدة عاللستة", seas:"موسمي", rare:"مبيع نادر", proj:"+مشاريع", nocost:"بلا كلفة"},
+    selall:(n)=>`حدّد الكل (${n})`, selcnt:(n)=>n?`${n} محدد`:"", addsel:(n)=>n?`➕ ضيف المحدد للطلبية (${n})`:"➕ ضيف المحدد للطلبية", clearsel:"إلغاء التحديد",
+    th:{code:"الرمز", name:"المادة", qty:"الموجود", demand:"بيمشي بالشهر", cover:"بيكفي (شهر)", urg:"الحالة", sug:"نطلب", cost:"الكلفة $", val:"الإجمالي $", last:"آخر مبيع",
+        biggest:"أكبر مشروع", projects:"عدد المشاريع", pq:"مبيع المشاريع/سنة"},
+    loading:"عم نحمّل…", empty:"ما في شي مطلوب بهالفلتر.", all_covered:"كل شي مغطى لـ ٧ شهور — ما في شي لازم ينطلب اليوم.",
+    fl:{new:"جديدة", seas:"موسمي", rare:(n)=>RO.billWord(n), proj:(n)=>`+مشاريع ${n}`, nocost:"بلا كلفة", draft:"🧾 بالطلبية", onlist:"عاللستة فوق"},
+    proj_t:"مواد المشاريع — قرارها إلك", proj_n:(n,m)=>`${n} مادة · ${m} منها مو عاللستة`,
+    proj_note:"هدول مواد انباعت بكميات كبيرة بمشروع أو مشروعين، مو مبيع يومي — لهيك ما دخلت بوسطي الشهر. الموجود عنا اليوم ما بيكفّي لو رجع مشروع متلو. إذا بتتوقع تكرار، حدّدها وضيفها — الكمية المقترحة = تغطية أكبر مشروع من المخزون.",
+    how_t:"ℹ️ كيف انحسبت الكميات",
+    how:[
+      "بيمشي بالشهر = وسطي المبيع الفعلي بآخر ١٢ شهر — من فواتير الأمين، مو تقدير.",
+      "استثنينا مبيعات المشاريع الكبيرة من الوسطي، لأنها ما بتتكرر كل شهر. تلاقيها بقسم «مواد المشاريع» لتقرر فيها لحالك.",
+      "منطلب لما يضل عنا أقل من ٧ شهور (٥ شهور وصول + ٢ احتياط) — ومنكفّي لـ ١٢ شهر. نفس القاعدة يلي عشاشة المستودع.",
+      "المواد يلي قررت توقفها (١٣ مادة) مشطوبة نهائياً — ما رح تلاقيها هون.",
+      "ما في مضاعِف صيفي: نافذة الـ١٢ شهر فيها صيف كامل أصلاً — المواد الموسمية معلّمة لتوقيت الطلب بس.",
+      "الأسعار كلفة بالدولار من الأمين (الوسطي)، للتقدير فقط — السعر النهائي من المورّد.",
+      "الطلبية بتنحفظ عهالجهاز لحالها. حدّد → ضيف → عدّل الكمية → صدّر ملف لكل ماركة.",
+    ],
+    fab:"الطلبية", d_ttl:"الطلبية", d_tot:(n,b)=>`${n} مادة · ${b} ماركة`, d_empty:"الطلبية فاضية — حدّد مواد من القائمة وضيفها.",
+    d_all:"الكل", d_sum:"إجمالي الطلبية (كلفة)", d_nocost:(n)=>`${n} بلا كلفة مسجّلة — مو محسوبة`,
+    ex_zip_xlsx:"📗 Excel لكل ماركة", ex_zip_xlsx_s:"ملف لكل ماركة، بملف ZIP واحد", ex_zip_pdf:"📕 PDF لكل ماركة", ex_zip_pdf_s:"ملف لكل ماركة، بملف ZIP واحد",
+    ex_full_xlsx:"📘 Excel — ملف واحد", ex_full_xlsx_s:"صفحة الخلاصة + ورقة لكل ماركة", ex_full_pdf:"📄 PDF — ملف واحد", ex_full_pdf_s:"للقراءة والطباعة",
+    ex_all:"🗜 كل الملفات بـ ZIP واحد", d_clear:"🗑 فضّي الطلبية", d_clear_confirm:"تفضّي الطلبية كلها؟",
+    st_qty:"الموجود", st_sug:"نطلب", st_proj:"مشروع",
+    added:(n,m)=>`انضاف ${n} للطلبية${m?` · ${m} كانو موجودين`:""}`, removed:"انشال من الطلبية", exporting:"عم نجهّز الملفات…", exported:(n)=>`جهّزنا ${n} ملف`,
+    load_err:"ما قدرنا نوصل للبيانات.", bills_err:"ما قدرنا نجيب فواتير الأمين — الطلبية بدها المبيعات لتنحسب.",
+    xlsx_one:"Excel", pdf_one:"PDF",
+    locale:"ar-SY",
+  },
+  en: {
+    title:"Lightware — Reorder planner", pagename:"Reorder planner", back:"Warehouse", lang_btn:"ع",
+    auth_title:"Team sign-in", auth_note:"This page prices the order at cost — management only. Same sign-in as the warehouse screen.",
+    auth_email:"Email", auth_pass:"Password", auth_go:"Sign in", auth_err:"Didn't work — check the email and password.",
+    logout_confirm:"Sign out?", cost_title:"Sign out",
+    t_lines:"items to order", t_units:"total units", t_val:"order value (cost)", t_out:"fully out of stock",
+    window:(a,b)=>`computed from sales ${a} → ${b}`, stock:(s)=>`stock as of ${s}`, refresh:"↻ Recompute", computing:"Computing from Al-Ameen bills…",
+    stale:(h)=>`⚠ Stock is stale — last sync ${h}h ago. Don't order off these numbers before checking the sync.`,
+    search_ph:"Search by code, name or brand…", all_brands:"All brands",
+    sort:{urg:"Most urgent first", val:"Value ⬇", brand:"By brand", cover:"Least cover", sug:"Quantity ⬇"},
+    urg:{ALL:"All", "نفد":"Out", "حرج":"Critical", "قريب":"Soon"},
+    flags:{new:"New to list", seas:"Seasonal", rare:"Rare sales", proj:"+projects", nocost:"No cost"},
+    selall:(n)=>`Select all (${n})`, selcnt:(n)=>n?`${n} selected`:"", addsel:(n)=>n?`➕ Add selected to order (${n})`:"➕ Add selected to order", clearsel:"Clear selection",
+    th:{code:"Code", name:"Item", qty:"In stock", demand:"Per month", cover:"Cover (mo)", urg:"Status", sug:"Suggest", cost:"Cost $", val:"Total $", last:"Last sale",
+        biggest:"Biggest project", projects:"# projects", pq:"Project units/yr"},
+    loading:"Loading…", empty:"Nothing to order in this filter.", all_covered:"Everything is covered for 7 months — nothing to order today.",
+    fl:{new:"new", seas:"seasonal", rare:(n)=>`${n} bill${n===1?"":"s"}`, proj:(n)=>`+projects ${n}`, nocost:"no cost", draft:"🧾 in order", onlist:"on the list above"},
+    proj_t:"Project items — your call", proj_n:(n,m)=>`${n} items · ${m} not on the list`,
+    proj_note:"These sold in large quantities on one or two projects, not daily — so they are excluded from the monthly average. Today's stock could not serve a repeat of the same project. If you expect one, select and add — the suggested quantity covers the biggest project from stock.",
+    how_t:"ℹ️ How the quantities were computed",
+    how:[
+      "Per month = the real average of the last 12 months of sales, from Al-Ameen bills — not an estimate.",
+      "Large project sales are excluded from the average because they don't repeat monthly. They are listed under «Project items» for you to decide.",
+      "We order when fewer than 7 months remain (5 months lead + 2 buffer) and top up to 12 months. Same rule as the warehouse screen.",
+      "The 13 items you discontinued are permanently excluded.",
+      "No summer multiplier: the 12-month window already contains a full summer — seasonal items are flagged for timing only.",
+      "Prices are Al-Ameen average cost in USD, for estimation — the final price comes from the supplier.",
+      "The order draft is saved on this device only. Select → add → adjust quantities → export one file per brand.",
+    ],
+    fab:"Order", d_ttl:"Order draft", d_tot:(n,b)=>`${n} items · ${b} brand${b===1?"":"s"}`, d_empty:"The order is empty — select items from the list and add them.",
+    d_all:"All", d_sum:"Order total (cost)", d_nocost:(n)=>`${n} without a recorded cost — not counted`,
+    ex_zip_xlsx:"📗 Excel per brand", ex_zip_xlsx_s:"one file per brand, in one ZIP", ex_zip_pdf:"📕 PDF per brand", ex_zip_pdf_s:"one file per brand, in one ZIP",
+    ex_full_xlsx:"📘 Excel — single file", ex_full_xlsx_s:"summary page + one sheet per brand", ex_full_pdf:"📄 PDF — single file", ex_full_pdf_s:"to read and print",
+    ex_all:"🗜 Everything in one ZIP", d_clear:"🗑 Empty the order", d_clear_confirm:"Empty the whole order?",
+    st_qty:"stock", st_sug:"suggest", st_proj:"project",
+    added:(n,m)=>`Added ${n} to the order${m?` · ${m} were already in`:""}`, removed:"Removed from the order", exporting:"Preparing files…", exported:(n)=>`${n} file${n===1?"":"s"} ready`,
+    load_err:"Couldn't reach the data.", bills_err:"Couldn't fetch Al-Ameen bills — the order needs the sales history.",
+    xlsx_one:"Excel", pdf_one:"PDF",
+    locale:"en-GB",
+  },
+};
+let lang = (()=>{ try { return localStorage.getItem(LANG_KEY)==="en" ? "en" : "ar"; } catch { return "ar"; } })();
+const t = (k)=> DICT[lang][k];
+const $ = (id)=> document.getElementById(id);
+const escHtml = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtN = (n, d=0)=> Number(n).toLocaleString("en-US",{minimumFractionDigits:d, maximumFractionDigits:d});
+const fmtUSD = (n)=> "$" + fmtN(n);
+const fmtQty = (q)=> Number.isInteger(q) ? fmtN(q) : fmtN(q,1);
+function toast(msg){ const el=$("toast"); el.textContent=msg; el.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"), 2600); }
+function busy(on, title, sub){ const b=$("busy"); b.classList.toggle("open", !!on); $("busy-t").textContent=title||""; $("busy-s").textContent=sub||""; }
+const todayISO = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+
+/* ================= auth (shared with the dashboard) ================= */
+function savedAuth(){ try { return JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch { return null; } }
+async function getToken(){
+  let a = savedAuth();
+  if(!a) return null;
+  if(a.expires_at*1000 > Date.now()+60000) return a.access_token;
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
+    method:"POST", headers:{apikey:SUPABASE_ANON_KEY,"Content-Type":"application/json"},
+    body: JSON.stringify({refresh_token:a.refresh_token})
+  });
+  if(!r.ok){ localStorage.removeItem(AUTH_KEY); return null; }
+  a = await r.json(); localStorage.setItem(AUTH_KEY, JSON.stringify(a));
+  return a.access_token;
+}
+async function paged(path, tk){
+  const out = [];
+  for(let from=0;;from+=1000){
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${tk}`, Range:`${from}-${from+999}` } });
+    if(!r.ok) throw new Error(`${path.split("?")[0]} HTTP ${r.status}`);
+    const page = await r.json(); out.push(...page);
+    if(page.length < 1000) break;
+  }
+  return out;
+}
+
+/* ================= data ================= */
+let items = [], plan = null, syncedAt = "", windowFrom = "";
+async function loadItems(tk){
+  // tracked = the sync's copy of settings.tracked → the «جديدة عاللستة» proxy
+  items = await paged("dashboard_items?select=code,name,latin_name,unit,qty,brand,cost,tracked,synced_at,image_url", tk);
+  syncedAt = items.reduce((m,i)=> i.synced_at>m ? i.synced_at : m, "");
+}
+// The bills are ~6k rows; the FOLDED per-code line lists are tiny, so those
+// are what gets cached (12h, same calendar day). Stock is always fetched live.
+async function loadDemand(tk, force){
+  const today = todayISO();
+  if(!force){
+    try {
+      const c = JSON.parse(localStorage.getItem(DEMAND_KEY) || "null");
+      if(c && c.today===today && Date.now()-c.ts < DEMAND_TTL && c.per){ windowFrom = c.from; return c.per; }
+    } catch {}
+  }
+  const [b26, b25] = await Promise.all([
+    paged("alameen_bills?select=kind,date,items", tk),
+    paged("alameen_bills_2025?select=kind,date,items", tk).catch(()=>[]),   // archive optional
+  ]);
+  const { per, from } = RO.foldBills([...b26, ...b25], today);
+  windowFrom = from;
+  try { localStorage.setItem(DEMAND_KEY, JSON.stringify({ts:Date.now(), today, from, per})); } catch {}
+  return per;
+}
+async function compute(force){
+  const tk = await getToken();
+  if(!tk){ showGate(); return; }
+  busy(true, t("computing"), "");
+  try{
+    await loadItems(tk);
+    let per;
+    try { per = await loadDemand(tk, force); }
+    catch(e){ throw new Error(t("bills_err") + " — " + e.message); }
+    plan = RO.computePlan(items, per);
+    busy(false);
+    renderAll();
+  }catch(e){
+    busy(false);
+    $("robody").innerHTML = `<tr><td colspan="11" class="state">${t("load_err")}<br><small style="direction:ltr">${escHtml(e.message)}</small></td></tr>`;
+  }
+}
+
+/* ================= state ================= */
+let query = "", brand = "ALL", urg = "ALL", sortMode = "urg", flags = new Set();
+let selected = new Set((()=>{ try { return JSON.parse(sessionStorage.getItem(SEL_KEY)||"[]"); } catch { return []; } })());
+function saveSel(){ try { sessionStorage.setItem(SEL_KEY, JSON.stringify([...selected])); } catch {} }
+// draft: code -> { qty, isProject, addedAt }
+let draft = (()=>{ try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY)||"null"); return d && d.lines ? d.lines : {}; } catch { return {}; } })();
+function saveDraft(){ try { localStorage.setItem(DRAFT_KEY, JSON.stringify({lines:draft, ts:Date.now()})); } catch {} }
+let dBrand = "ALL";
+
+const normText = s => String(s||"").toLowerCase().replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[ً-ْـ]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/[ىئ]/g,"ي");
+function visibleRows(){
+  if(!plan) return [];
+  let rows = plan.rows;
+  if(brand!=="ALL") rows = rows.filter(r=>r.brand===brand);
+  if(urg!=="ALL") rows = rows.filter(r=>r.urgency===urg);
+  if(flags.size) rows = rows.filter(r=>[...flags].every(f=>
+    f==="new" ? r.newToList : f==="seas" ? r.seasonal : f==="rare" ? r.bills<5 : f==="proj" ? r.projectQty>0 : f==="nocost" ? r.cost==null : true));
+  const q = normText(query.trim());
+  if(q){ const toks=q.split(/\s+/).filter(Boolean); rows = rows.filter(r=>{ const h=normText(`${r.code} ${r.name} ${r.ref} ${r.brand}`); return toks.every(tk=>h.includes(tk)); }); }
+  const U = {"نفد":0,"حرج":1,"قريب":2};
+  const cmp = {
+    urg:   (a,b)=> U[a.urgency]-U[b.urgency] || (b.flow||0)-(a.flow||0),
+    val:   (a,b)=> (b.value||0)-(a.value||0) || U[a.urgency]-U[b.urgency],
+    brand: (a,b)=> a.brand.localeCompare(b.brand,"ar") || U[a.urgency]-U[b.urgency] || (b.flow||0)-(a.flow||0),
+    cover: (a,b)=> a.cover-b.cover || (b.flow||0)-(a.flow||0),
+    sug:   (a,b)=> b.suggest-a.suggest,
+  }[sortMode];
+  return [...rows].sort(cmp);
+}
+function visibleProjects(){
+  if(!plan) return [];
+  let ps = plan.projects;
+  if(brand!=="ALL") ps = ps.filter(r=>r.brand===brand);
+  const q = normText(query.trim());
+  if(q){ const toks=q.split(/\s+/).filter(Boolean); ps = ps.filter(r=>{ const h=normText(`${r.code} ${r.name} ${r.ref} ${r.brand}`); return toks.every(tk=>h.includes(tk)); }); }
+  return ps;
+}
+
+/* ================= render ================= */
+function flagsHtml(r){
+  const f = [];
+  if(r.isProject) f.push(`<span class="fl proj">${t("st_proj")}</span>`);
+  if(r.newToList) f.push(`<span class="fl new">${t("fl").new}</span>`);
+  if(r.seasonal) f.push(`<span class="fl seas">${t("fl").seas}</span>`);
+  if(!r.isProject && r.bills!=null && r.bills<5) f.push(`<span class="fl rare">${t("fl").rare(r.bills)}</span>`);
+  if(!r.isProject && r.projectQty>0) f.push(`<span class="fl proj">${t("fl").proj(fmtN(r.projectQty))}</span>`);
+  if(r.cost==null) f.push(`<span class="fl nocost">${t("fl").nocost}</span>`);
+  if(draft[r.code]) f.push(`<span class="fl draft">${t("fl").draft}</span>`);
+  return f.length ? `<div class="flags">${f.join("")}</div>` : "";
+}
+function renderTiles(){
+  const rows = plan.rows;
+  $("t-lines").textContent = fmtN(rows.length);
+  $("t-units").textContent = fmtN(rows.reduce((s,r)=>s+r.suggest,0));
+  $("t-val").textContent = fmtUSD(rows.reduce((s,r)=>s+(r.value||0),0));
+  $("t-out").textContent = fmtN(rows.filter(r=>r.urgency==="نفد").length);
+  $("tl-lines").textContent=t("t_lines"); $("tl-units").textContent=t("t_units"); $("tl-val").textContent=t("t_val"); $("tl-out").textContent=t("t_out");
+  $("sub-window").innerHTML = t("window")(`<span class="num">${escHtml(windowFrom)}</span>`, `<span class="num">${escHtml(todayISO())}</span>`);
+  const d = new Date(syncedAt);
+  $("sub-stock").textContent = syncedAt ? t("stock")(d.toLocaleString(t("locale"),{dateStyle:"short",timeStyle:"short"})) : "";
+  $("refresh").textContent = t("refresh");
+  const ageH = syncedAt ? (Date.now()-d.getTime())/3600e3 : 0, hour = new Date().getHours();
+  const w = $("stalewarn"); w.hidden = !(ageH>3 && hour>=10 && hour<21); if(!w.hidden) w.textContent = t("stale")(Math.round(ageH));
+}
+function renderControls(){
+  $("search").placeholder = t("search_ph");
+  const bs = [...new Set(plan.rows.map(r=>r.brand))].sort((a,b)=>(plan.brands[b]?.val||0)-(plan.brands[a]?.val||0));
+  $("brandsel").innerHTML = `<option value="ALL">${t("all_brands")}</option>` + bs.map(b=>`<option value="${escHtml(b)}"${b===brand?" selected":""}>${escHtml(b)} · ${plan.brands[b].n}</option>`).join("");
+  $("sortsel").innerHTML = Object.entries(t("sort")).map(([k,v])=>`<option value="${k}"${k===sortMode?" selected":""}>${v}</option>`).join("");
+  const counts = {ALL: plan.rows.length}; for(const r of plan.rows) counts[r.urgency]=(counts[r.urgency]||0)+1;
+  $("urgchips").innerHTML = ["ALL","نفد","حرج","قريب"].map(u=>`<span class="chip${u===urg?" active":""}" data-u="${u}">${t("urg")[u]}<span class="n">${counts[u]||0}</span></span>`).join("");
+  $("urgchips").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ urg=c.dataset.u; renderControls(); renderTable(); });
+  const fc = { new: plan.rows.filter(r=>r.newToList).length, seas: plan.rows.filter(r=>r.seasonal).length, rare: plan.rows.filter(r=>r.bills<5).length, proj: plan.rows.filter(r=>r.projectQty>0).length, nocost: plan.rows.filter(r=>r.cost==null).length };
+  $("flagchips").innerHTML = Object.keys(fc).map(f=>`<span class="chip flag${flags.has(f)?" active":""}" data-f="${f}">${t("flags")[f]}<span class="n">${fc[f]}</span></span>`).join("");
+  $("flagchips").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const f=c.dataset.f; flags.has(f)?flags.delete(f):flags.add(f); renderControls(); renderTable(); });
+}
+function renderTable(){
+  const rows = visibleRows();
+  const th = t("th");
+  $("rohead").innerHTML = `<th></th><th>${th.code}</th><th class="name">${th.name}</th><th>${th.qty}</th><th class="col-lo">${th.demand}</th><th class="col-lo">${th.cover}</th><th>${th.urg}</th><th>${th.sug}</th><th class="col-lo">${th.cost}</th><th>${th.val}</th><th class="col-lo">${th.last}</th>`;
+  if(!rows.length){
+    $("robody").innerHTML = `<tr><td colspan="11" class="state">${plan.rows.length ? t("empty") : t("all_covered")}</td></tr>`;
+  } else {
+    $("robody").innerHTML = rows.map(r=>`
+      <tr data-code="${escHtml(r.code)}" class="${draft[r.code]?"indraft":""}${selected.has(r.code)?" checked":""}">
+        <td><input type="checkbox" data-code="${escHtml(r.code)}"${selected.has(r.code)?" checked":""}></td>
+        <td class="num">${escHtml(r.code)}</td>
+        <td class="name"><div class="nm">${escHtml(r.name||r.ref||r.code)}</div>${r.ref?`<div class="meta">${escHtml(r.ref)}</div>`:""}${flagsHtml(r)}</td>
+        <td class="num">${fmtQty(r.qty)}</td>
+        <td class="num col-lo">${fmtN(r.demand,1)}</td>
+        <td class="num col-lo">${fmtN(r.cover,1)}</td>
+        <td><span class="pill ${r.urgency}">${t("urg")[r.urgency]}</span></td>
+        <td class="num sug">${fmtN(r.suggest)}</td>
+        <td class="num cost col-lo">${r.cost==null?"—":fmtN(r.cost,2)}</td>
+        <td class="num val">${r.value==null?"—":fmtUSD(r.value)}</td>
+        <td class="num col-lo" style="font-size:11.5px;color:var(--muted)">${escHtml(r.last||"")}</td>
+      </tr>`).join("");
+  }
+  $("robody").querySelectorAll("input[type=checkbox]").forEach(cb=>cb.onchange=()=>{ cb.checked?selected.add(cb.dataset.code):selected.delete(cb.dataset.code); saveSel(); cb.closest("tr").classList.toggle("checked", cb.checked); renderBulk(); });
+  $("robody").querySelectorAll("tr[data-code]").forEach(tr=>tr.onclick=(e)=>{ if(e.target.tagName==="INPUT"||e.target.tagName==="A") return; const cb=tr.querySelector("input"); cb.checked=!cb.checked; cb.onchange(); });
+  renderProjects();
+  renderBulk();
+}
+function renderProjects(){
+  const ps = visibleProjects();
+  const th = t("th");
+  const notOn = plan.projects.filter(p=>!p.onOrderList).length;
+  $("proj-t").textContent = t("proj_t"); $("proj-n").textContent = t("proj_n")(plan.projects.length, notOn);
+  $("proj-note").textContent = t("proj_note");
+  $("projhead").innerHTML = `<th><input type="checkbox" id="projall" title="${t("selall")(ps.filter(p=>!p.onOrderList).length)}"></th><th>${th.code}</th><th class="name">${th.name}</th><th>${th.qty}</th><th>${th.biggest}</th><th class="col-lo">${th.projects}</th><th class="col-lo">${th.pq}</th><th class="col-lo">${th.cost}</th><th>${th.sug}</th>`;
+  $("projbody").innerHTML = ps.length ? ps.map(p=>`
+    <tr data-code="${escHtml(p.code)}" class="${draft[p.code]?"indraft":""}${selected.has(p.code)&&!p.onOrderList?" checked":""}">
+      <td>${p.onOrderList ? "" : `<input type="checkbox" data-code="${escHtml(p.code)}" data-proj="1"${selected.has(p.code)?" checked":""}>`}</td>
+      <td class="num">${escHtml(p.code)}</td>
+      <td class="name"><div class="nm">${escHtml(p.name||p.ref||p.code)}</div><div class="meta">${escHtml(p.brand)}${p.ref?" · "+escHtml(p.ref):""}</div>
+        <div class="flags">${p.onOrderList?`<span class="fl">${t("fl").onlist}</span>`:""}${p.cost==null?`<span class="fl nocost">${t("fl").nocost}</span>`:""}${draft[p.code]?`<span class="fl draft">${t("fl").draft}</span>`:""}</div></td>
+      <td class="num">${fmtQty(p.qty)}</td>
+      <td class="num sug">${fmtN(p.biggest)}</td>
+      <td class="num col-lo">${p.projects}</td>
+      <td class="num col-lo">${fmtN(p.projectQty)}</td>
+      <td class="num cost col-lo">${p.cost==null?"—":fmtN(p.cost,2)}</td>
+      <td class="num">${p.onOrderList ? "—" : fmtN(p.suggest)}</td>
+    </tr>`).join("") : `<tr><td colspan="9" class="state">${t("empty")}</td></tr>`;
+  $("projbody").querySelectorAll("input[type=checkbox]").forEach(cb=>cb.onchange=()=>{ cb.checked?selected.add(cb.dataset.code):selected.delete(cb.dataset.code); saveSel(); cb.closest("tr").classList.toggle("checked", cb.checked); renderBulk(); });
+  $("projall").onchange = ()=>{ const vis = ps.filter(p=>!p.onOrderList).map(p=>p.code); if($("projall").checked) vis.forEach(c=>selected.add(c)); else vis.forEach(c=>selected.delete(c)); saveSel(); renderTable(); };
+}
+function renderBulk(){
+  const all = visibleRows().map(r=>r.code);
+  const nSel = all.filter(c=>selected.has(c)).length;
+  const sa = $("selall"); sa.checked = all.length>0 && nSel===all.length; sa.indeterminate = nSel>0 && nSel<all.length;
+  $("selall-l").textContent = t("selall")(all.length);
+  const pAll = visibleProjects().filter(p=>!p.onOrderList).map(p=>p.code), pSel = pAll.filter(c=>selected.has(c)).length;
+  const pa = $("projall"); if(pa){ pa.checked = pAll.length>0 && pSel===pAll.length; pa.indeterminate = pSel>0 && pSel<pAll.length; }
+  $("selcnt").textContent = t("selcnt")(selected.size);
+  $("addsel").textContent = t("addsel")(selected.size); $("addsel").disabled = !selected.size;
+  $("clearsel").textContent = t("clearsel"); $("clearsel").hidden = !selected.size;
+}
+$("selall").onchange = ()=>{
+  const vis = visibleRows().map(r=>r.code);
+  if($("selall").checked) vis.forEach(c=>selected.add(c)); else vis.forEach(c=>selected.delete(c));
+  saveSel(); renderTable();
+};
+$("clearsel").onclick = ()=>{ selected.clear(); saveSel(); renderTable(); };
+$("addsel").onclick = ()=>{
+  let n=0, m=0;
+  const byCode = Object.fromEntries(plan.rows.map(r=>[r.code,r]));
+  const pByCode = Object.fromEntries(plan.projects.map(p=>[p.code,p]));
+  for(const c of selected){
+    if(draft[c]){ m++; continue; }
+    const r = byCode[c], p = pByCode[c];
+    if(r) draft[c] = { qty: r.suggest, isProject:false, addedAt: Date.now() };
+    else if(p) draft[c] = { qty: p.suggest, isProject:true, addedAt: Date.now() };
+    else continue;
+    n++;
+  }
+  selected.clear(); saveSel(); saveDraft();
+  toast(t("added")(n,m)); renderTable(); renderDrawer();
+  if(n) openDrawer();
+};
+
+/* ---------- the draft ---------- */
+// join draft entries with the live plan: a code that has left the standing
+// list (stock arrived) still renders, from the live item, so nothing vanishes
+function draftLines(){
+  const byCode = Object.fromEntries(plan.rows.map(r=>[r.code,r]));
+  const pByCode = Object.fromEntries(plan.projects.map(p=>[p.code,p]));
+  const iByCode = Object.fromEntries(items.map(i=>[i.code,i]));
+  const out = [];
+  for(const [code, d] of Object.entries(draft)){
+    const r = byCode[code], p = pByCode[code], i = iByCode[code];
+    if(!r && !p && !i) continue;
+    const base = r ? {...r} : p ? {...p, isProject:true, urgency:null, demand:null, cover:null, flow:null} :
+      { code, name:i.name||"", ref:i.latin_name||"", brand:i.brand||"—", unit:i.unit||"", qty:Number(i.qty)||0, cost:i.cost==null?null:Number(i.cost),
+        suggest:d.qty, urgency:null, demand:null, cover:null, flow:null, bills:null, projectQty:0, origin:RO.ORIGIN[i.brand]||"—" };
+    if(p && !r) base.isProject = true;
+    base.qtyOrder = Number(d.qty)||0;
+    base.value = base.cost==null ? null : Math.round(base.qtyOrder*base.cost*100)/100;
+    out.push(base);
+  }
+  return out;
+}
+function renderDrawer(){
+  const lines = draftLines();
+  const groups = RO.groupByBrand(lines);
+  const total = groups.reduce((s,g)=>s+g.val,0), nocost = lines.filter(l=>l.cost==null).length;
+  $("fab-l").textContent = t("fab"); $("fabn").textContent = lines.length;
+  $("d-ttl").textContent = t("d_ttl"); $("d-tot").textContent = t("d_tot")(lines.length, groups.length);
+  $("d-sum-l").textContent = t("d_sum") + (nocost ? ` · ${t("d_nocost")(nocost)}` : ""); $("d-sum-v").textContent = fmtUSD(total);
+  if(dBrand!=="ALL" && !groups.some(g=>g.brand===dBrand)) dBrand="ALL";
+  $("dchips").innerHTML = `<span class="chip${dBrand==="ALL"?" active":""}" data-b="ALL">${t("d_all")}<span class="n">${lines.length}</span></span>` +
+    groups.map(g=>`<span class="chip${dBrand===g.brand?" active":""}" data-b="${escHtml(g.brand)}">${escHtml(g.brand)}<span class="n">${g.lines.length}</span></span>`).join("");
+  $("dchips").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ dBrand=c.dataset.b; renderDrawer(); });
+  const show = dBrand==="ALL" ? groups : groups.filter(g=>g.brand===dBrand);
+  $("dbody").innerHTML = !lines.length ? `<div class="state">${t("d_empty")}</div>` : show.map(g=>`
+    <div class="grp" data-brand="${escHtml(g.brand)}">
+      <div class="ghead"><span class="b">${escHtml(g.brand)}</span><span class="o">${escHtml(g.origin)} · ${g.lines.length} · ${fmtN(g.units)}</span>
+        <span class="v num">${fmtUSD(g.val)}</span>
+        <span class="ex"><button class="btn sm" data-ex="xlsx" data-brand="${escHtml(g.brand)}">📗 ${t("xlsx_one")}</button><button class="btn sm" data-ex="pdf" data-brand="${escHtml(g.brand)}">📕 ${t("pdf_one")}</button></span></div>
+      ${g.lines.map(l=>`
+      <div class="dl" data-code="${escHtml(l.code)}">
+        <div><div class="nm">${escHtml(l.name||l.ref||l.code)}</div><div class="mt">${escHtml(l.code)}${l.ref?" · "+escHtml(l.ref):""}</div>${flagsHtml({...l, code:"__"})}</div>
+        <div class="st">${t("st_qty")}<b class="num">${fmtQty(l.qty)}</b></div>
+        <div class="st">${l.isProject?t("st_proj"):t("st_sug")}<b class="num">${fmtN(l.suggest)}</b></div>
+        <input type="number" min="0" step="1" value="${l.qtyOrder}" data-code="${escHtml(l.code)}" aria-label="qty">
+        <div class="ln num">${l.cost==null?"—":fmtUSD(l.qtyOrder*l.cost)}</div>
+        <button class="rm" data-code="${escHtml(l.code)}" title="✕">✕</button>
+      </div>`).join("")}
+    </div>`).join("");
+  $("dbody").querySelectorAll("input[type=number]").forEach(inp=>{
+    inp.onchange = inp.oninput = ()=>{ const v=Math.max(0, Math.round(Number(inp.value)||0)); draft[inp.dataset.code].qty=v; saveDraft();
+      const l = draftLines().find(x=>x.code===inp.dataset.code); const ln = inp.parentElement.querySelector(".ln"); if(l) ln.textContent = l.cost==null?"—":fmtUSD(v*l.cost);
+      refreshDrawerTotals(); };
+  });
+  $("dbody").querySelectorAll(".rm").forEach(b=>b.onclick=()=>{ delete draft[b.dataset.code]; saveDraft(); toast(t("removed")); renderDrawer(); renderTable(); });
+  $("dbody").querySelectorAll("button[data-ex]").forEach(b=>b.onclick=()=> exportBrand(b.dataset.brand, b.dataset.ex));
+  ["ex-zip-xlsx","ex-zip-pdf","ex-full-xlsx","ex-full-pdf"].forEach(id=>{ const k=id.replace(/-/g,"_"); $(id).innerHTML = `${t(k)}<small>${t(k+"_s")}</small>`; $(id).disabled = !lines.length; });
+  $("ex-all").textContent = t("ex_all"); $("ex-all").disabled = !lines.length;
+  $("d-clear").textContent = t("d_clear"); $("d-clear").disabled = !lines.length;
+}
+function refreshDrawerTotals(){
+  const lines = draftLines(), groups = RO.groupByBrand(lines);
+  $("d-sum-v").textContent = fmtUSD(groups.reduce((s,g)=>s+g.val,0));
+  for(const g of groups){ const el = $("dbody").querySelector(`.grp[data-brand="${CSS.escape(g.brand)}"] .ghead .v`); if(el) el.textContent = fmtUSD(g.val); }
+}
+function openDrawer(){ $("drawer").classList.add("open"); $("scrim").classList.add("open"); }
+function closeDrawer(){ $("drawer").classList.remove("open"); $("scrim").classList.remove("open"); }
+$("fab").onclick = openDrawer; $("dclose").onclick = closeDrawer; $("scrim").onclick = closeDrawer;
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeDrawer(); });
+$("d-clear").onclick = ()=>{ if(!confirm(t("d_clear_confirm"))) return; draft={}; saveDraft(); renderDrawer(); renderTable(); };
+
+/* ================= exports ================= */
+const stamp = ()=> todayISO();
+function download(bytes, name, mime){
+  const blob = bytes instanceof Blob ? bytes : new Blob([bytes], {type:mime});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const LRI = (s)=> `\u2066${s}\u2069`;
+const metaFor = ()=> ({ subtitle: `محسوبة من مبيعات آخر ١٢ شهر الفعلية (${LRI(windowFrom)} — ${LRI(todayISO())}) · المخزون آخر مزامنة ${syncedAt ? new Date(syncedAt).toLocaleString("ar-SY",{dateStyle:"short",timeStyle:"short"}) : "—"} · الطلبية من شاشة المستودع` });
+const safeName = (s)=> String(s).replace(/[\\/:*?"<>|]/g,"-");
+async function exportBrand(b, kind){
+  const g = RO.groupByBrand(draftLines()).find(x=>x.brand===b); if(!g) return;
+  busy(true, t("exporting"), b);
+  try{
+    if(kind==="xlsx") download(await RO.brandWorkbook(g), `Lightware — طلبية ${safeName(b)} — ${stamp()}.xlsx`, XLSX_MIME);
+    else download(await brandPdf(g), `Lightware — طلبية ${safeName(b)} — ${stamp()}.pdf`, "application/pdf");
+    toast(t("exported")(1));
+  } finally { busy(false); }
+}
+$("ex-zip-xlsx").onclick = async ()=>{ const gs=RO.groupByBrand(draftLines()); busy(true,t("exporting"),"Excel"); try{
+  const files=[]; for(const g of gs) files.push({name:`طلبية ${safeName(g.brand)} — ${stamp()}.xlsx`, data: await RO.brandWorkbook(g)});
+  download(await RO.zip(files), `Lightware — طلبيات Excel حسب الماركة — ${stamp()}.zip`, "application/zip"); toast(t("exported")(files.length)); } finally { busy(false); } };
+$("ex-zip-pdf").onclick = async ()=>{ const gs=RO.groupByBrand(draftLines()); busy(true,t("exporting"),"PDF"); try{
+  const files=[]; for(const g of gs){ $("busy-s").textContent=g.brand; files.push({name:`طلبية ${safeName(g.brand)} — ${stamp()}.pdf`, data: await brandPdf(g)}); }
+  download(await RO.zip(files), `Lightware — طلبيات PDF حسب الماركة — ${stamp()}.zip`, "application/zip"); toast(t("exported")(files.length)); } finally { busy(false); } };
+$("ex-full-xlsx").onclick = async ()=>{ busy(true,t("exporting"),"Excel"); try{
+  download(await RO.fullWorkbook(RO.groupByBrand(draftLines()), metaFor()), `Lightware — طلبية إعادة التوريد — ${stamp()}.xlsx`, XLSX_MIME); toast(t("exported")(1)); } finally { busy(false); } };
+$("ex-full-pdf").onclick = async ()=>{ busy(true,t("exporting"),"PDF"); try{
+  download(await fullPdf(RO.groupByBrand(draftLines())), `Lightware — طلبية إعادة التوريد — ${stamp()}.pdf`, "application/pdf"); toast(t("exported")(1)); } finally { busy(false); } };
+$("ex-all").onclick = async ()=>{ const gs=RO.groupByBrand(draftLines()); busy(true,t("exporting"),"ZIP"); try{
+  const files=[{name:`طلبية إعادة التوريد — ${stamp()}.xlsx`, data: await RO.fullWorkbook(gs, metaFor())},
+               {name:`طلبية إعادة التوريد — ${stamp()}.pdf`, data: await fullPdf(gs)}];
+  for(const g of gs){ $("busy-s").textContent=g.brand; files.push({name:`حسب الماركة/طلبية ${safeName(g.brand)} — ${stamp()}.xlsx`, data: await RO.brandWorkbook(g)});
+    files.push({name:`حسب الماركة/طلبية ${safeName(g.brand)} — ${stamp()}.pdf`, data: await brandPdf(g)}); }
+  download(await RO.zip(files), `Lightware — طلبية إعادة التوريد كاملة — ${stamp()}.zip`, "application/zip"); toast(t("exported")(files.length)); } finally { busy(false); } };
+
+/* ---------- PDF: canvas pages (Arabic shapes natively) → JPEG → the house writer ---------- */
+const PW = 1240, PH = 1754, M = 60, FONT = '-apple-system,"Segoe UI",system-ui,"Noto Sans Arabic",sans-serif';
+const PC = { ink:"#1C1813", sub:"#5C5344", faint:"#8A7F6A", amber:"#E8870B", amberBg:"#FBE9CE", line:"#E2D8C3", line2:"#D3C7AC", cream:"#F6F1E7", zebra:"#FCFAF5",
+  out:["#F6D5CE","#9E2B14"], crit:["#FBE0C4","#8A5A00"], soon:["#FFF4CC","#7A6314"], proj:["#E9E4F5","#4B3F7A"], his:"#FFF9D6" };
+const URGK = {"نفد":"out","حرج":"crit","قريب":"soon"};
+function newPage(){ const c=document.createElement("canvas"); c.width=PW; c.height=PH; const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,PW,PH); return [c,x]; }
+function T(x, s, px, py, o={}){ x.save(); x.font=`${o.bold?"bold ":""}${o.size||17}px ${FONT}`; x.fillStyle=o.color||PC.ink; x.textAlign=o.align||"right"; x.direction=o.dir||"rtl"; x.textBaseline="middle"; x.fillText(String(s), px, py); x.restore(); }
+function fit(x, s, maxW, size){ x.save(); x.font=`${size||17}px ${FONT}`; let str=String(s); if(x.measureText(str).width<=maxW){ x.restore(); return str; } while(str.length>1 && x.measureText(str+"…").width>maxW) str=str.slice(0,-1); x.restore(); return str+"…"; }
+function rect(x, l, tp, w, h, fill, stroke){ if(fill){ x.fillStyle=fill; x.fillRect(l,tp,w,h); } if(stroke){ x.strokeStyle=stroke; x.lineWidth=1; x.strokeRect(l+.5,tp+.5,w-1,h-1); } }
+function pill(x, cx, cy, label, [bg,fg]){ x.save(); x.font=`bold 14px ${FONT}`; const w=x.measureText(label).width+22, h=26; x.fillStyle=bg; x.beginPath(); if(x.roundRect) x.roundRect(cx-w/2, cy-h/2, w, h, 13); else x.rect(cx-w/2, cy-h/2, w, h); x.fill(); x.restore(); T(x,label,cx,cy,{bold:true,size:14,color:fg,align:"center"}); }
+// RTL columns: first entry is the RIGHTMOST column
+function colsFrom(spec){ let right=PW-M; return spec.map(([k,w])=>{ const c={k, w, r:right, l:right-w, c:right-w/2}; right-=w; return c; }); }
+function header(x, meta, page, pages, ttl){
+  T(x,"LIGHTWARE",PW-M-14,M+8,{bold:false,size:26,color:PC.ink,align:"right",dir:"ltr"}); T(x,"•",PW-M,M+8,{bold:true,size:26,color:PC.amber,align:"right",dir:"ltr"});
+  T(x, ttl, M, M+8, {size:14, color:PC.faint, align:"left", dir:"rtl"});
+  T(x, `${page} / ${pages}`, M, PH-30, {size:12, color:PC.faint, align:"left", dir:"ltr"});
+  T(x, "طلبية داخلية للتقدير — الأسعار كلفة الأمين (الوسطي) · السعر النهائي من المورّد", PW-M, PH-30, {size:12, color:PC.faint});
+}
+function brandBand(x, g, y){ rect(x, M, y, PW-2*M, 62, PC.ink); T(x, g.brand, PW-M-18, y+31, {bold:true,size:26,color:"#F2ECDF"});
+  x.save(); x.font=`bold 26px ${FONT}`; const bw=x.measureText(g.brand).width; x.restore();
+  T(x, `${g.origin} · ${g.lines.length} مادة · ${fmtN(g.units)} قطعة`, PW-M-18-(bw+20), y+31, {size:15,color:"#C9BFA9"});
+  T(x, fmtUSD(g.val), M+18, y+31, {bold:true,size:22,color:"#F2ECDF",align:"left",dir:"ltr"}); }
+const BCOLS = [["code",110],["name",395],["qty",80],["demand",95],["cover",80],["urg",85],["sug",85],["order",95],["total",95]];
+const BHDR = {code:"الرمز",name:"المادة",qty:"الموجود",demand:"بالشهر",cover:"بيكفي",urg:"الحالة",sug:"نطلب",order:"كميتك",total:"الإجمالي $"};
+function tableHead(x, cols, hdr, y){ rect(x, M, y, PW-2*M, 40, PC.amber); for(const c of cols) T(x, hdr[c.k], c.c, y+20, {bold:true,size:14,color:"#fff",align:"center"}); return y+40; }
+// pages for one brand; returns canvases
+function brandPages(g, ttl){
+  const cols = colsFrom(BCOLS), RH = 36;
+  const pages=[]; let [cv,x]=newPage(), y=M+50; let first=true;
+  const startPage=()=>{ [cv,x]=newPage(); y=M+50; pages.push(cv); if(first){ brandBand(x,g,y); y+=74; first=false; } else { T(x, `${g.brand} — تابع`, PW-M, y+10, {bold:true,size:18,color:PC.sub}); y+=34; } y=tableHead(x,cols,BHDR,y); };
+  startPage();
+  g.lines.forEach((l,i)=>{
+    if(y+RH > PH-M-60) startPage();
+    if(i%2) rect(x, M, y, PW-2*M, RH, PC.zebra);
+    rect(x, M, y, PW-2*M, RH, null, PC.line);
+    const v = { code:l.code, qty:fmtQty(l.qty), demand:l.demand==null?"—":fmtN(l.demand,1), cover:l.cover==null?"—":fmtN(l.cover,1), sug:fmtN(l.suggest), order:fmtN(l.qtyOrder), total:l.cost==null?"—":fmtUSD(l.qtyOrder*l.cost) };
+    for(const c of cols){
+      if(c.k==="name"){ const flags=RO.noteFor(l); T(x, fit(x,l.name||l.ref||l.code,c.w-16,flags?15:16), c.r-8, y+(flags?13:18), {size:flags?15:16}); if(flags) T(x, fit(x,flags,c.w-16,11), c.r-8, y+28, {size:11,color:PC.faint}); }
+      else if(c.k==="urg"){ if(l.urgency) pill(x,c.c,y+18,l.urgency,PC[URGK[l.urgency]]); else pill(x,c.c,y+18,"مشروع",PC.proj); }
+      else if(c.k==="order"){ rect(x, c.l+4, y+4, c.w-8, RH-8, PC.his); T(x,v[c.k],c.c,y+18,{bold:true,size:16,align:"center",dir:"ltr"}); }
+      else T(x, v[c.k], c.c, y+18, {size:c.k==="sug"?16:15, bold:c.k==="sug", align:"center", dir:"ltr", color:c.k==="code"?PC.sub:PC.ink});
+    }
+    y+=RH;
+  });
+  if(y+RH > PH-M-60) startPage();
+  rect(x, M, y, PW-2*M, 40, PC.amberBg, PC.line2);
+  const cc = Object.fromEntries(cols.map(c=>[c.k,c]));
+  T(x, `إجمالي ${g.brand}`, cc.name.r-8, y+20, {bold:true,size:16});
+  T(x, fmtN(g.units), cc.order.c, y+20, {bold:true,size:16,align:"center",dir:"ltr"});
+  T(x, fmtUSD(g.val), cc.total.c, y+20, {bold:true,size:16,align:"center",dir:"ltr"});
+  if(g.nocost) T(x, `${g.nocost} بلا كلفة مسجّلة — مو محسوبة`, cc.qty.r, y+20, {size:12,color:PC.faint});
+  return pages;
+}
+function summaryPage(groups){
+  const [cv,x]=newPage(); let y=M+60;
+  T(x,"طلبية إعادة التوريد — حسب الماركة",PW-M,y,{bold:true,size:30}); y+=40;
+  T(x, metaFor().subtitle, PW-M, y, {size:14,color:PC.sub}); y+=30;
+  x.fillStyle=PC.ink; x.fillRect(M,y,PW-2*M,3); y+=34;
+  const lines = groups.flatMap(g=>g.lines), units = groups.reduce((s,g)=>s+g.units,0), val = groups.reduce((s,g)=>s+g.val,0), out = lines.filter(l=>l.urgency==="نفد").length;
+  const tw=(PW-2*M)/4; [[fmtN(lines.length),"مادة مطلوبة"],[fmtN(units),"إجمالي الكمية"],[fmtUSD(val),"قيمة الطلبية (كلفة)"],[fmtN(out),"مادة نافدة تماماً"]].forEach(([v,l],i)=>{
+    const cx = PW-M-tw*i-tw/2; rect(x, PW-M-tw*(i+1), y, tw, 96, PC.cream, PC.line2); T(x,v,cx,y+36,{bold:true,size:30,align:"center",dir:"ltr"}); T(x,l,cx,y+72,{size:13,color:PC.sub,align:"center"}); });
+  y+=120;
+  let lx = PW-M; for(const [u,d] of [["نفد","ما ضل ولا حبة — كل طلب عليها اليوم بيروح لغيرنا"],["حرج","بيخلص قبل ما توصل الطلبية"],["قريب","بيكفي شوي بعد — منحطها بنفس الشحنة"]]){
+    pill(x, lx-30, y, u, PC[URGK[u]]); x.save(); x.font=`13px ${FONT}`; const w=x.measureText(d).width; x.restore(); T(x,d,lx-70,y,{size:13,color:PC.sub}); lx -= 70+w+40; if(lx<M+300){ lx=PW-M; y+=34; } }
+  y+=44;
+  const cols = colsFrom([["brand",300],["origin",150],["n",120],["units",130],["val",160],["out",80],["crit",80],["soon",80]]);
+  y = tableHead(x, cols, {brand:"الماركة",origin:"من وين",n:"عدد المواد",units:"الكمية",val:"القيمة $",out:"نفد",crit:"حرج",soon:"قريب"}, y);
+  const cc = Object.fromEntries(cols.map(c=>[c.k,c]));
+  groups.forEach((g,i)=>{ if(i%2) rect(x,M,y,PW-2*M,34,PC.zebra); rect(x,M,y,PW-2*M,34,null,PC.line);
+    const a = RO.brandAgg(g.lines);
+    const b = a[g.brand] || {out:0,crit:0,soon:0};
+    T(x,g.brand,cc.brand.r-8,y+17,{size:15,bold:true}); T(x,g.origin,cc.origin.c,y+17,{size:14,align:"center"});
+    for(const [k,v] of [["n",g.lines.length],["units",fmtN(g.units)],["val",fmtN(g.val)],["out",b.out],["crit",b.crit],["soon",b.soon]]) T(x,v,cc[k].c,y+17,{size:15,align:"center",dir:"ltr"});
+    y+=34; });
+  rect(x,M,y,PW-2*M,38,PC.amberBg,PC.line2); T(x,"الإجمالي",cc.brand.r-8,y+19,{bold:true,size:16});
+  for(const [k,v] of [["n",lines.length],["units",fmtN(units)],["val",fmtN(val)],["out",out],["crit",lines.filter(l=>l.urgency==="حرج").length],["soon",lines.filter(l=>l.urgency==="قريب").length]]) T(x,v,cc[k].c,y+19,{bold:true,size:16,align:"center",dir:"ltr"});
+  y+=70;
+  rect(x,M,y,PW-2*M,250,PC.cream,PC.line); T(x,"كيف انحسبت الكميات",PW-M-16,y+26,{bold:true,size:16,color:"#9A5A08"});
+  let ly=y+58; for(const n of DICT.ar.how.slice(0,6)){ T(x,"•  "+fit(x,n,PW-2*M-40,13.5),PW-M-16,ly,{size:13.5,color:PC.ink}); ly+=30; }
+  return cv;
+}
+async function toJpegs(canvases){ const out=[]; for(const c of canvases){ const b = await new Promise(r=>c.toBlob(r,"image/jpeg",0.9)); out.push(await b.arrayBuffer()); } return out; }
+async function packCanvases(canvases){ return RO.packPdf(await toJpegs(canvases), canvases.map(c=>({w:c.width,h:c.height}))); }
+async function brandPdf(g){
+  const pages = brandPages(g);
+  pages.forEach((cv,i)=>header(cv.getContext("2d"), null, i+1, pages.length, `طلبية ${g.brand} · ${todayISO()}`));
+  return packCanvases(pages);
+}
+async function fullPdf(groups){
+  const pages = [summaryPage(groups), ...groups.flatMap(g=>brandPages(g))];
+  pages.forEach((cv,i)=>header(cv.getContext("2d"), null, i+1, pages.length, `طلبية إعادة التوريد · ${todayISO()}`));
+  return packCanvases(pages);
+}
+
+/* ================= chrome / boot ================= */
+function applyLang(){
+  const d = DICT[lang];
+  document.documentElement.lang = lang; document.documentElement.dir = lang==="ar" ? "rtl" : "ltr";
+  document.title = d.title; $("pagename").textContent = d.pagename; $("backbtn").title = d.back;
+  $("langbtn").textContent = d.lang_btn; $("authbtn").title = d.cost_title;
+  $("auth-title").textContent = d.auth_title; $("auth-note").textContent = d.auth_note;
+  $("auth-email").placeholder = d.auth_email; $("auth-pass").placeholder = d.auth_pass; $("auth-go").textContent = d.auth_go;
+  const ld = $("loading"); if(ld) ld.textContent = d.loading;
+  $("how-t").textContent = d.how_t; $("how-list").innerHTML = d.how.map(s=>`<li>${escHtml(s)}</li>`).join("");
+}
+function renderAll(){ renderTiles(); renderControls(); renderTable(); renderDrawer(); }
+$("langbtn").onclick = ()=>{ lang = lang==="ar"?"en":"ar"; try{ localStorage.setItem(LANG_KEY, lang); }catch{} applyLang(); if(plan) renderAll(); };
+$("search").addEventListener("input", e=>{ query=e.target.value; renderTable(); });
+$("brandsel").onchange = e=>{ brand=e.target.value; renderTable(); };
+$("sortsel").onchange = e=>{ sortMode=e.target.value; renderTable(); };
+$("refresh").onclick = ()=> compute(true);
+function showGate(){ $("gate").hidden=false; $("app").hidden=true; $("authbtn").textContent="🔒"; }
+$("authbtn").onclick = ()=>{ if(savedAuth()){ if(confirm(t("logout_confirm"))){ localStorage.removeItem(AUTH_KEY); location.reload(); } } else showGate(); };
+$("auth-go").onclick = async ()=>{
+  const email=$("auth-email").value.trim(), pass=$("auth-pass").value, err=$("auth-err"); err.textContent="";
+  try{
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{ method:"POST", headers:{apikey:SUPABASE_ANON_KEY,"Content-Type":"application/json"}, body: JSON.stringify({email, password:pass}) });
+    if(!r.ok) throw new Error();
+    localStorage.setItem(AUTH_KEY, JSON.stringify(await r.json())); location.reload();
+  }catch{ err.textContent = t("auth_err"); }
+};
+$("auth-pass").addEventListener("keydown", e=>{ if(e.key==="Enter") $("auth-go").click(); });
+(async function init(){
+  applyLang();
+  if(!savedAuth()){ showGate(); return; }
+  $("authbtn").textContent="🔓"; $("app").hidden=false; $("gate").hidden=true;
+  await compute(false);
+})();
+</script>
+</body>
+</html>
