@@ -117,6 +117,8 @@
   .pill.قريب{background:var(--soon-bg); color:var(--soon-tx)} .pill.proj{background:var(--proj-bg); color:var(--proj-tx)}
   td.sug{font-weight:700; font-size:15px}
   td.cost, td.val{color:#3E7A3E; font-weight:600}
+  td.sup{color:#8A5A00; font-weight:600}
+  .supsum{color:#8A5A00; font-size:12.5px; margin-top:2px}
   .state{padding:40px 20px; text-align:center; color:var(--muted); font-size:15px}
   @media (max-width:760px){ .col-lo{display:none} .tiles{grid-template-columns:repeat(2,1fr)} .bulkbar{top:58px} table.ro{min-width:0} td.name .nm{font-size:13px} table.ro td{padding:8px 5px} }
 
@@ -264,6 +266,7 @@
     <div class="dbody" id="dbody"></div>
     <div class="dfoot">
       <div class="sum"><span id="d-sum-l"></span><b class="num" id="d-sum-v">$0</b></div>
+      <div class="sum supsum" id="d-sup" style="display:none"><span class="l"></span><b class="num v">$0</b></div>
       <div class="exgrid">
         <button class="btn primary" id="ex-zip-xlsx"></button>
         <button class="btn primary" id="ex-zip-pdf"></button>
@@ -304,7 +307,7 @@ const DICT = {
     urg:{ALL:"الكل", "نفد":"نفد", "حرج":"حرج", "قريب":"قريب"},
     flags:{new:"جديدة عاللستة", seas:"موسمي", rare:"مبيع نادر", proj:"+مشاريع", nocost:"بلا كلفة"},
     selall:(n)=>`حدّد الكل (${n})`, selcnt:(n)=>n?`${n} محدد`:"", addsel:(n)=>n?`➕ ضيف المحدد للطلبية (${n})`:"➕ ضيف المحدد للطلبية", clearsel:"إلغاء التحديد",
-    th:{code:"الرمز", name:"المادة", qty:"الموجود", demand:"بيمشي بالشهر", cover:"بيكفي (شهر)", urg:"الحالة", sug:"نطلب", cost:"الكلفة $", val:"الإجمالي $", last:"آخر مبيع",
+    th:{code:"الرمز", name:"المادة", qty:"الموجود", demand:"بيمشي بالشهر", cover:"بيكفي (شهر)", urg:"الحالة", sug:"نطلب", cost:"الكلفة $", sup:"سعر المورّد $", val:"الإجمالي $", last:"آخر مبيع",
         biggest:"أكبر مشروع", projects:"عدد المشاريع", pq:"مبيع المشاريع/سنة"},
     loading:"عم نحمّل…", empty:"ما في شي مطلوب بهالفلتر.", all_covered:"كل شي مغطى لـ ٧ شهور — ما في شي لازم ينطلب اليوم.",
     fl:{new:"جديدة", seas:"موسمي", rare:(n)=>RO.billWord(n), proj:(n)=>`+مشاريع ${n}`, nocost:"بلا كلفة", draft:"🧾 بالطلبية", onlist:"عاللستة فوق"},
@@ -321,7 +324,9 @@ const DICT = {
       "الطلبية بتنحفظ عهالجهاز لحالها. حدّد → ضيف → عدّل الكمية → صدّر ملف لكل ماركة.",
     ],
     fab:"الطلبية", d_ttl:"الطلبية", d_tot:(n,b)=>`${n} مادة · ${b} ماركة`, d_empty:"الطلبية فاضية — حدّد مواد من القائمة وضيفها.",
-    d_all:"الكل", d_sum:"إجمالي الطلبية (كلفة)", d_nocost:(n)=>`${n} بلا كلفة مسجّلة — مو محسوبة`,
+    d_all:"الكل", d_sum:"إجمالي الطلبية (كلفة)",
+    d_sup:(n,m)=>`بسعر المورّد (${n} من ${m} مادة)`,
+    sup_note:(q,d)=>`سعر المورّد من عرض ${q} تاريخ ${d} — تسليم مستودعه (EXW)، بدون شحن وجمرك؛ الكلفة عالرف طلعت أعلى منه ~١٦٪ بالمتوسط.`, d_nocost:(n)=>`${n} بلا كلفة مسجّلة — مو محسوبة`,
     ex_zip_xlsx:"📗 Excel لكل ماركة", ex_zip_xlsx_s:"ملف لكل ماركة، بملف ZIP واحد", ex_zip_pdf:"📕 PDF لكل ماركة", ex_zip_pdf_s:"ملف لكل ماركة، بملف ZIP واحد",
     ex_full_xlsx:"📘 Excel — ملف واحد", ex_full_xlsx_s:"صفحة الخلاصة + ورقة لكل ماركة", ex_full_pdf:"📄 PDF — ملف واحد", ex_full_pdf_s:"للقراءة والطباعة",
     ex_all:"🗜 كل الملفات بـ ZIP واحد", d_clear:"🗑 فضّي الطلبية", d_clear_confirm:"تفضّي الطلبية كلها؟",
@@ -344,7 +349,7 @@ const DICT = {
     urg:{ALL:"All", "نفد":"Out", "حرج":"Critical", "قريب":"Soon"},
     flags:{new:"New to list", seas:"Seasonal", rare:"Rare sales", proj:"+projects", nocost:"No cost"},
     selall:(n)=>`Select all (${n})`, selcnt:(n)=>n?`${n} selected`:"", addsel:(n)=>n?`➕ Add selected to order (${n})`:"➕ Add selected to order", clearsel:"Clear selection",
-    th:{code:"Code", name:"Item", qty:"In stock", demand:"Per month", cover:"Cover (mo)", urg:"Status", sug:"Suggest", cost:"Cost $", val:"Total $", last:"Last sale",
+    th:{code:"Code", name:"Item", qty:"In stock", demand:"Per month", cover:"Cover (mo)", urg:"Status", sug:"Suggest", cost:"Cost $", sup:"Supplier $", val:"Total $", last:"Last sale",
         biggest:"Biggest project", projects:"# projects", pq:"Project units/yr"},
     loading:"Loading…", empty:"Nothing to order in this filter.", all_covered:"Everything is covered for 7 months — nothing to order today.",
     fl:{new:"new", seas:"seasonal", rare:(n)=>`${n} bill${n===1?"":"s"}`, proj:(n)=>`+projects ${n}`, nocost:"no cost", draft:"🧾 in order", onlist:"on the list above"},
@@ -361,7 +366,9 @@ const DICT = {
       "The order draft is saved on this device only. Select → add → adjust quantities → export one file per brand.",
     ],
     fab:"Order", d_ttl:"Order draft", d_tot:(n,b)=>`${n} items · ${b} brand${b===1?"":"s"}`, d_empty:"The order is empty — select items from the list and add them.",
-    d_all:"All", d_sum:"Order total (cost)", d_nocost:(n)=>`${n} without a recorded cost — not counted`,
+    d_all:"All", d_sum:"Order total (cost)",
+    d_sup:(n,m)=>`at supplier prices (${n} of ${m} items)`,
+    sup_note:(q,d)=>`Supplier prices from quotation ${q} of ${d} — EXW at their warehouse, before freight and customs; landed cost has run ~16% above it.`, d_nocost:(n)=>`${n} without a recorded cost — not counted`,
     ex_zip_xlsx:"📗 Excel per brand", ex_zip_xlsx_s:"one file per brand, in one ZIP", ex_zip_pdf:"📕 PDF per brand", ex_zip_pdf_s:"one file per brand, in one ZIP",
     ex_full_xlsx:"📘 Excel — single file", ex_full_xlsx_s:"summary page + one sheet per brand", ex_full_pdf:"📄 PDF — single file", ex_full_pdf_s:"to read and print",
     ex_all:"🗜 Everything in one ZIP", d_clear:"🗑 Empty the order", d_clear_confirm:"Empty the whole order?",
@@ -410,10 +417,29 @@ async function paged(path, tk){
 
 /* ================= data ================= */
 let items = [], plan = null, syncedAt = "", windowFrom = "";
+
+/* Supplier cost baselines — phase25 `supplier_costs`, loaded from a supplier
+   quotation by system_core/ingest_supplier_quote.py.
+   ⚠ NOT the same fact as `dashboard_items.cost`, which is Al-Ameen's الوسطي:
+   what our own inventory averaged, landed, and which the hourly sync owns.
+   The supplier figure is an EXW offer at their warehouse — freight, customs
+   and clearing are not in it. Both are shown side by side; neither is ever
+   silently substituted for the other. Quiet no-op before the SQL paste: no
+   table ⇒ empty map ⇒ the page renders exactly as it does today. */
+let SUP = new Map(), supMeta = null;
+async function loadSupplier(tk){
+  try{
+    const rows = await paged("supplier_costs?select=code,cost_usd,cost_jod,currency,supplier,quote_no,quote_date", tk);
+    SUP = new Map(rows.map(r=>[r.code, r]));
+    supMeta = rows.reduce((m,r)=> !m || r.quote_date > m.quote_date ? r : m, null);
+  }catch(e){ SUP = new Map(); supMeta = null; }
+}
+const supUsd = (code)=>{ const r = SUP.get(code); return r && r.cost_usd!=null ? Number(r.cost_usd) : null; };
 async function loadItems(tk){
   // tracked = the sync's copy of settings.tracked → the «جديدة عاللستة» proxy
   items = await paged("dashboard_items?select=code,name,latin_name,unit,qty,brand,cost,tracked,synced_at,image_url", tk);
   syncedAt = items.reduce((m,i)=> i.synced_at>m ? i.synced_at : m, "");
+  await loadSupplier(tk);
 }
 // The bills are ~6k rows; the FOLDED per-code line lists are tiny, so those
 // are what gets cached (12h, same calendar day). Stock is always fetched live.
@@ -531,9 +557,9 @@ function renderControls(){
 function renderTable(){
   const rows = visibleRows();
   const th = t("th");
-  $("rohead").innerHTML = `<th></th><th>${th.code}</th><th class="name">${th.name}</th><th>${th.qty}</th><th class="col-lo">${th.demand}</th><th class="col-lo">${th.cover}</th><th>${th.urg}</th><th>${th.sug}</th><th class="col-lo">${th.cost}</th><th>${th.val}</th><th class="col-lo">${th.last}</th>`;
+  $("rohead").innerHTML = `<th></th><th>${th.code}</th><th class="name">${th.name}</th><th>${th.qty}</th><th class="col-lo">${th.demand}</th><th class="col-lo">${th.cover}</th><th>${th.urg}</th><th>${th.sug}</th><th class="col-lo">${th.cost}</th>${SUP.size?`<th class="col-lo">${th.sup}</th>`:""}<th>${th.val}</th><th class="col-lo">${th.last}</th>`;
   if(!rows.length){
-    $("robody").innerHTML = `<tr><td colspan="11" class="state">${plan.rows.length ? t("empty") : t("all_covered")}</td></tr>`;
+    $("robody").innerHTML = `<tr><td colspan="${SUP.size?12:11}" class="state">${plan.rows.length ? t("empty") : t("all_covered")}</td></tr>`;
   } else {
     $("robody").innerHTML = rows.map(r=>`
       <tr data-code="${escHtml(r.code)}" class="${draft[r.code]?"indraft":""}${selected.has(r.code)?" checked":""}">
@@ -546,6 +572,7 @@ function renderTable(){
         <td><span class="pill ${r.urgency}">${t("urg")[r.urgency]}</span></td>
         <td class="num sug">${fmtN(r.suggest)}</td>
         <td class="num cost col-lo">${r.cost==null?"—":fmtN(r.cost,2)}</td>
+        ${SUP.size?`<td class="num sup col-lo">${supUsd(r.code)==null?"—":fmtN(supUsd(r.code),2)}</td>`:""}
         <td class="num val">${r.value==null?"—":fmtUSD(r.value)}</td>
         <td class="num col-lo" style="font-size:11.5px;color:var(--muted)">${escHtml(r.last||"")}</td>
       </tr>`).join("");
@@ -640,6 +667,15 @@ function renderDrawer(){
   $("fab-l").textContent = t("fab"); $("fabn").textContent = lines.length;
   $("d-ttl").textContent = t("d_ttl"); $("d-tot").textContent = t("d_tot")(lines.length, groups.length);
   $("d-sum-l").textContent = t("d_sum") + (nocost ? ` · ${t("d_nocost")(nocost)}` : ""); $("d-sum-v").textContent = fmtUSD(total);
+  // …and what the SAME basket costs at the supplier's own quoted prices, on
+  // the lines we hold a quote for. Beside the Al-Ameen figure, never instead
+  // of it — the two answer different questions.
+  const supLines = lines.filter(l=>supUsd(l.code)!=null), dsup = $("d-sup");
+  if(supLines.length){
+    dsup.style.display = "";
+    dsup.querySelector(".l").textContent = t("d_sup")(supLines.length, lines.length);
+    dsup.querySelector(".v").textContent = fmtUSD(supLines.reduce((s,l)=>s+l.qtyOrder*supUsd(l.code),0));
+  } else dsup.style.display = "none";
   if(dBrand!=="ALL" && !groups.some(g=>g.brand===dBrand)) dBrand="ALL";
   $("dchips").innerHTML = `<span class="chip${dBrand==="ALL"?" active":""}" data-b="ALL">${t("d_all")}<span class="n">${lines.length}</span></span>` +
     groups.map(g=>`<span class="chip${dBrand===g.brand?" active":""}" data-b="${escHtml(g.brand)}">${escHtml(g.brand)}<span class="n">${g.lines.length}</span></span>`).join("");
@@ -822,9 +858,18 @@ function applyLang(){
   $("auth-title").textContent = d.auth_title; $("auth-note").textContent = d.auth_note;
   $("auth-email").placeholder = d.auth_email; $("auth-pass").placeholder = d.auth_pass; $("auth-go").textContent = d.auth_go;
   const ld = $("loading"); if(ld) ld.textContent = d.loading;
-  $("how-t").textContent = d.how_t; $("how-list").innerHTML = d.how.map(s=>`<li>${escHtml(s)}</li>`).join("");
+  $("how-t").textContent = d.how_t; renderHow();
 }
-function renderAll(){ renderTiles(); renderControls(); renderTable(); renderDrawer(); }
+// ⚠ the supplier note is appended only once a quote is actually loaded, so the
+// page says nothing about EXW until there is an EXW price on it — which means
+// it must be re-rendered AFTER loadSupplier(), not only on applyLang() (which
+// runs before any data lands and left the note permanently missing).
+function renderHow(){
+  const d = DICT[lang];
+  const how = supMeta ? [...d.how, d.sup_note(supMeta.quote_no, supMeta.quote_date)] : d.how;
+  $("how-list").innerHTML = how.map(s=>`<li>${escHtml(s)}</li>`).join("");
+}
+function renderAll(){ renderTiles(); renderControls(); renderTable(); renderDrawer(); renderHow(); }
 $("langbtn").onclick = ()=>{ lang = lang==="ar"?"en":"ar"; try{ localStorage.setItem(LANG_KEY, lang); }catch{} applyLang(); if(plan) renderAll(); };
 $("search").addEventListener("input", e=>{ query=e.target.value; renderTable(); });
 $("brandsel").onchange = e=>{ brand=e.target.value; renderTable(); };
