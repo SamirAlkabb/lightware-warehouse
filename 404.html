@@ -33,7 +33,7 @@
          padding:14px 16px 12px; position:sticky; top:0; z-index:10;
          box-shadow:0 1px 0 rgba(232,135,11,.16)}
   .brand{display:flex; align-items:center; justify-content:space-between}
-  /* Lightware wordmark: light letterspaced caps + amber period (brand assets in "Logo Lightware/") */
+  /* Lightware wordmark: light letterspaced caps + amber period (brand assets in brand/logo/) */
   .wordmark{font-size:16px; font-weight:300; letter-spacing:4px; color:#F2ECDF;
             white-space:nowrap; direction:ltr; unicode-bidi:embed}
   .wordmark .dot{color:var(--amber); font-weight:600; letter-spacing:0}
@@ -162,6 +162,7 @@
     <span class="wordmark">LIGHTWARE<span class="dot">.</span></span>
     <span style="display:flex;align-items:center;gap:10px">
       <span class="sync" id="sync">…</span>
+      <a class="authbtn" id="auditbtn" href="audit.html" hidden style="text-decoration:none">📋</a>
       <a class="authbtn" id="reorderbtn" href="reorder.html" hidden style="text-decoration:none">📦</a>
       <button class="authbtn" id="langbtn">EN</button>
       <button class="authbtn" id="authbtn">🔒</button>
@@ -838,6 +839,11 @@ function syncAuthBtn(){
   // the reorder planner prices the order at cost — team only, like the cost column
   const rb = document.getElementById("reorderbtn");
   rb.hidden = !inn; rb.title = t("reorder_title");
+  // «الجرد» (9 Sep 2026) — stock counting, shelf mapping and the exceptions list,
+  // moved here from the order portal because this is the app the people who walk
+  // the racks already use. Same login, same origin, no build step.
+  const ab = document.getElementById("auditbtn");
+  ab.hidden = !inn; ab.title = t("audit_title");
 }
 document.getElementById("authbtn").onclick = ()=>{
   if(savedAuth()){

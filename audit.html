@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#221D16">
+<meta name="robots" content="noindex, nofollow">
+<title>Lightware — الجرد</title>
+<!--
+  «الجرد» — stock counting, shelf mapping and management exceptions.
+  9 Sep 2026. MOVED HERE FROM THE ORDER PORTAL, and rebuilt, on Samir's
+  instruction: «our warehouse employees have very low digital literacy and
+  struggle with standard mobile interfaces». The portal is a dense four-tab
+  document tool built for Qusay and Amr; the people who walk the racks use the
+  warehouse app, so the work moved to them.
+
+  ⚠ THE UX RULE THIS PAGE IS BUILT AROUND: ONE QUESTION PER SCREEN.
+  No tabs, no dashboards, no side-by-side panels, nothing to scroll past to
+  find the thing you need. Every screen asks exactly one thing, in words a
+  person who does not use apps can read, with one obvious button to answer it.
+  Counting is one ITEM per screen — a big photograph, the name, and a keypad —
+  instead of a 40-row table of tiny inputs. Tap targets are ≥64px because a
+  warehouse hand is not a stylus.
+
+  ⚠ THE BLIND-COUNT RULE IS UNCHANGED AND LOAD-BEARING: the counter never sees
+  the expected quantity. A count that can see the answer anchors on the screen
+  instead of on the shelf. audit_engine.js's countList() carries no quantity at
+  all, and no counting screen here renders one.
+
+  ⚠ THE PIN IS GONE. The portal's per-profile PIN was retired in the same move;
+  attribution here is the warehouse login itself — every count row carries the
+  signed-in user's id and display name.
+
+  Ships beside index.html on warehouse.lightwaresy.com, behind the same login
+  (localStorage lw_dash_auth — one sign-in serves every page). Zero
+  dependencies and no build step, like the rest of this app: audit_engine.js
+  carries the rules and this file carries the fetches and the screens.
+-->
+<style>
+  :root{
+    --ink:#1C1813; --paper:#F8F4EC; --amber:#E8870B; --amber-2:#F09A22;
+    --card:#FFFFFF; --line:#E4DBC8; --muted:#776E5E;
+    --cream:#F6F1E7; --chrome:#262019; --chrome-line:#3D352A;
+    --good:#1E7A45; --good-bg:#E6F4EB; --bad:#B3261E; --bad-bg:#FBE9E7;
+    --warn:#8A5A00; --warn-bg:#FDF0DA;
+    --tap:64px;                 /* the floor for anything you press */
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper); color:var(--ink);
+    font:17px/1.6 "IBM Plex Sans Arabic", "Segoe UI", system-ui, -apple-system, sans-serif;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  /* ── chrome ── */
+  header{
+    position:sticky; top:0; z-index:20; background:var(--chrome); color:#FCEDD8;
+    border-bottom:1px solid var(--chrome-line);
+    padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .back{
+    width:48px; height:48px; flex:none; border-radius:14px; border:1px solid var(--chrome-line);
+    background:#31291F; color:#FCEDD8; font-size:24px; line-height:1; cursor:pointer;
+  }
+  .htitle{flex:1; font-size:19px; font-weight:800; text-align:center}
+  .hbtn{
+    min-width:48px; height:48px; padding:0 12px; border-radius:14px; font-size:15px; font-weight:700;
+    border:1px solid var(--chrome-line); background:#31291F; color:#FCEDD8; cursor:pointer;
+  }
+  main{padding:16px 14px 32px; max-width:640px; margin:0 auto}
+
+  /* ── the one question ── */
+  .ask{font-size:24px; font-weight:800; line-height:1.35; margin:6px 0 4px}
+  .ask.q{font-size:18px; margin:2px 0 6px}
+  .askwhy{color:var(--muted); font-size:16px; margin:0 0 18px}
+
+  /* ── big choice buttons: the primary interaction of the whole page ── */
+  .big{
+    display:flex; align-items:center; gap:14px; width:100%; min-height:var(--tap);
+    padding:16px 18px; margin-bottom:12px; border-radius:18px; cursor:pointer;
+    background:var(--card); border:2px solid var(--line); color:var(--ink);
+    font:inherit; font-size:20px; font-weight:700; text-align:start; text-decoration:none;
+  }
+  .big:active{transform:scale(.985)}
+  .big .ic{font-size:30px; line-height:1; flex:none}
+  .big .tx{flex:1; min-width:0}
+  .big .sub{display:block; font-size:14px; font-weight:600; color:var(--muted); margin-top:2px}
+  .big .go{font-size:24px; color:var(--muted); flex:none}
+  .big.on{border-color:var(--amber); background:#FFF7EC}
+  .big.hero{
+    background:linear-gradient(180deg,var(--amber-2),var(--amber)); border-color:var(--amber);
+    color:#fff; font-size:22px; justify-content:center; min-height:68px;
+    box-shadow:0 6px 0 #C4740A;
+  }
+  .big.hero .sub{color:#FFF1DC}
+  .big.hero:active{box-shadow:0 2px 0 #C4740A; transform:translateY(4px)}
+  .big.calm{background:var(--cream)}
+  .big.warnbtn{border-color:#E7C48A; background:var(--warn-bg)}
+  .big[disabled]{opacity:.42; box-shadow:none; cursor:default}
+  .actrow{display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:8px; margin-bottom:10px}
+  .act{
+    min-height:58px; border-radius:16px; border:2px solid var(--line); background:var(--cream);
+    font:inherit; font-size:15px; font-weight:700; color:var(--ink); cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; line-height:1.15;
+  }
+  .act:active{background:#EFE8DA}
+  .act .ic{font-size:19px}
+  .quitlink{
+    display:block; width:100%; margin-top:14px; padding:12px; border:none; background:none;
+    font:inherit; font-size:15px; font-weight:700; color:var(--muted); text-decoration:underline; cursor:pointer;
+  }
+  .big .n{
+    font-size:15px; font-weight:800; padding:4px 12px; border-radius:999px;
+    background:var(--cream); color:var(--ink); flex:none;
+  }
+  .big.warnbtn .n{background:#F4DDB4}
+
+  /* ── the item being counted / mapped ── */
+  .itemcard{display:flex; gap:12px; align-items:center; margin-bottom:12px}
+  .shot{
+    width:92px; height:92px; flex:none; border-radius:20px; background:var(--cream);
+    border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .itemcard .body{flex:1; min-width:0}
+  .shot img{max-width:100%; max-height:100%; object-fit:contain}
+  .shot .noimg{font-size:44px; opacity:.35}
+  .iname{font-size:19px; font-weight:800; line-height:1.3; margin:0 0 6px; overflow-wrap:anywhere}
+  .imeta{display:flex; flex-wrap:wrap; gap:8px}
+  .tag{
+    font-size:15px; font-weight:700; padding:6px 12px; border-radius:999px;
+    background:var(--cream); border:1px solid var(--line);
+  }
+  .tag.shelf{background:var(--warn-bg); border-color:#E7C48A; color:var(--warn)}
+  .tag.qty{background:var(--good-bg); border-color:#BFE3CD; color:var(--good)}
+  .ltr{direction:ltr; unicode-bidi:isolate; display:inline-block}
+
+  /* ── progress ── */
+  .prog{margin:0 0 12px}
+  .progbar{height:12px; border-radius:999px; background:var(--line); overflow:hidden}
+  .progbar i{display:block; height:100%; background:var(--amber); border-radius:999px; transition:width .2s}
+  .progtx{display:flex; justify-content:space-between; font-size:15px; font-weight:700; color:var(--muted); margin-top:6px}
+
+  /* ── the number pad ── */
+  .num{
+    height:72px; border-radius:20px; border:2px solid var(--line); background:var(--card);
+    display:flex; align-items:center; justify-content:center; margin-bottom:12px;
+    font-size:38px; font-weight:800; direction:ltr; font-variant-numeric:tabular-nums;
+  }
+  .num.empty{color:#C7BDA8}
+  /* ⚠ direction:ltr is DELIBERATE — see the note in the head comment. */
+  .pad{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:12px; direction:ltr}
+  .key{
+    height:58px; border-radius:16px; border:2px solid var(--line); background:var(--card);
+    font:inherit; font-size:28px; font-weight:800; cursor:pointer; color:var(--ink);
+  }
+  .key:active{background:var(--cream)}
+  .key.plus{background:var(--good-bg); border-color:#BFE3CD; color:var(--good); font-size:24px}
+  .key.del{background:var(--bad-bg); border-color:#F0C8C4; color:var(--bad); font-size:18px}
+
+  /* ── notes, states ── */
+  .note{
+    border-radius:16px; padding:14px 16px; margin:0 0 14px; font-size:16px; font-weight:600;
+    background:var(--cream); border:1px solid var(--line);
+  }
+  .note.warn{background:var(--warn-bg); border-color:#E7C48A; color:var(--warn)}
+  .note.bad{background:var(--bad-bg); border-color:#F0C8C4; color:var(--bad)}
+  .note.good{background:var(--good-bg); border-color:#BFE3CD; color:var(--good)}
+  .state{padding:40px 10px; text-align:center; color:var(--muted); font-size:18px}
+
+  /* ── the finish screen ── */
+  .doneicon{font-size:76px; text-align:center; margin:18px 0 6px}
+  .donebig{font-size:27px; font-weight:800; text-align:center; margin-bottom:8px}
+  .donesub{text-align:center; color:var(--muted); font-size:17px; margin-bottom:22px}
+
+  /* ── manager lists (denser is allowed here — this screen is for Amr/Qusay) ── */
+  .row{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:14px 16px; margin-bottom:10px;
+  }
+  .rowtop{display:flex; gap:10px; align-items:baseline; justify-content:space-between}
+  .rowname{font-weight:700; font-size:17px}
+  .rowsub{color:var(--muted); font-size:14px; margin-top:2px}
+  .figure{font-weight:800; font-variant-numeric:tabular-nums; direction:ltr; unicode-bidi:isolate}
+  .figure.bad{color:var(--bad)} .figure.good{color:var(--good)}
+  .reschips{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+  .res{
+    min-height:48px; padding:10px 16px; border-radius:14px; border:2px solid var(--line);
+    background:var(--cream); font:inherit; font-size:16px; font-weight:700; cursor:pointer;
+  }
+  .res.on{border-color:var(--amber); background:#FFF7EC}
+  .savebtn{
+    width:100%; min-height:56px; margin-top:12px; border-radius:16px; border:none;
+    background:var(--amber); color:#fff; font:inherit; font-size:18px; font-weight:800; cursor:pointer;
+  }
+  .savebtn[disabled]{opacity:.4}
+
+  /* ── login ── */
+  .login input{
+    width:100%; min-height:var(--tap); margin-bottom:12px; padding:0 16px; font:inherit; font-size:18px;
+    border-radius:16px; border:2px solid var(--line); background:var(--card); direction:ltr;
+  }
+  @media (max-width:380px){ .ask{font-size:21px} .big{font-size:18px} .key{height:60px} }
+</style>
+</head>
+<body>
+
+<header>
+  <button class="back" id="back" hidden aria-label="رجوع">→</button>
+  <div class="htitle" id="htitle">الجرد</div>
+  <button class="hbtn" id="langbtn">EN</button>
+</header>
+
+<main id="app"><div class="state">…</div></main>
+
+<script src="audit_engine.js"></script>
+<script>
+/* ───────────────────────── config ───────────────────────── */
+const SUPABASE_URL = "https://ohprikkwnymjtcxzoylq.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ocHJpa2t3bnltanRjeHpveWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNDQ5MjQsImV4cCI6MjA5ODkyMDkyNH0.0nI52H8ZV6fuj948WGk-ZLDVSgIu9y59_9R2a_jZST0";
+const AUTH_KEY = "lw_dash_auth";
+const LANG_KEY = "lw_wh_lang";
+
+/* ───────────────────────── words ─────────────────────────
+   Shami, and deliberately plain: «شو بدك تعدّ؟» not «نطاق الجرد». Every string
+   is something you could say out loud to someone standing at a rack. */
+const DICT = {
+  ar:{
+    title:'الجرد', back:'رجوع',
+    /* login */
+    login_ask:'سجّل دخولك', login_why:'استعمل نفس الإيميل والرمز تبع المستودع',
+    login_go:'دخول', login_err:'الإيميل أو الرمز غلط',
+    logout:'خروج', logout_confirm:'بدك تطلع من الحساب؟',
+    /* home */
+    home_ask:'شو بدك تعمل؟',
+    home_count:'عِدّ البضاعة', home_count_sub:'امشي عالرفوف وسجّل شو في',
+    home_map:'حدّد مكان المواد', home_map_sub:'قول أي مادة على أي رف',
+    home_prob:'المشاكل', home_prob_sub:'للمسؤولين — فروقات ونواقص',
+    hello:'أهلين',
+    /* store pick */
+    store_ask:'وين عم تشتغل؟', store_why:'اختار المستودع يلي إنت واقف فيه',
+    store_home_no:'هاد بيت — ما منقدر نعدّو',
+    store_home_why:'البضاعة يلي ببيت حدا ما حدا فيه يعدّها، وما حدا فيه يتبرّا من نقص فيها. احكي مع المسؤول.',
+    never:'ما انعدّ ولا مرة', last_count:'آخر عدّة', days_ago:'من {n} يوم',
+    /* scope */
+    scope_ask:'شو بدك تعدّ؟',
+    scope_all:'كل المستودع', scope_all_sub:'كل المواد يلي فيه',
+    scope_rack:'رف واحد بس', scope_rack_sub:'أسرع — بتعدّ رف وبتخلص',
+    scope_brand:'ماركة وحدة', scope_brand_sub:'مثلاً كل ميغامان',
+    scope_abc:'أهم المواد', scope_abc_sub:'الغالية — هدول لازم ينعدّوا كل شهر',
+    rack_ask:'أي رف؟', rack_none:'ما في رفوف مسجّلة بهالمستودع',
+    rack_none_sub:'حدّد أماكن المواد أول، بعدين فيك تعدّ رف رف.',
+    brand_ask:'أي ماركة؟', brand_n:'{n} مادة',
+    /* ready */
+    ready_ask:'جاهز؟', ready_n:'{n} مادة رح تمرّ عليها',
+    ready_how:'رح نفرجيك مادة مادة. عدّ يلي عالرف واكتب الرقم. ما رح نفرجيك شو المفروض يكون في — عشان العدّة تطلع صحيحة.',
+    ready_go:'يلا نبلّش', ready_empty:'ما في مواد لهالاختيار',
+    resume:'في عدّة ما خلصت', resume_go:'كمّل العدّة', resume_new:'ابدأ من جديد',
+    /* counting */
+    count_ask:'قدّيش في من هاي؟', of:'{a} من {b}',
+    shelf:'رف', nostock_hint:'المادة مسجّلة هون بس ممكن ما تكون موجودة',
+    zero:'ما في ولا وحدة', skip:'ما لقيتها — تخطّى',
+    zero_short:'ما في ولا وحدة', skip_short:'ما لقيتها', prev_short:'رجوع',
+    next:'تأكيد', finish:'خلّصت — احفظ', prev:'المادة يلي قبل',
+    counted_tag:'انعدّت', clear:'مسح',
+    quit:'وقّف العدّة', quit_confirm:'بدك توقّف العدّة؟ يلي عدّيتو رح يروح.',
+    /* saving */
+    saving:'عم نحفظ…', save_err:'ما قدرنا نحفظ',
+    sql_missing:'الجداول ناقصة بالسيرفر — لازم ينلصق الملف:',
+    /* recount */
+    re_ask:'عيد عدّ هدول', re_why:'{n} مادة طلع فيها فرق. عدّها مرة تانية بهدوء — ما منفرجيك الرقم الأول.',
+    re_go:'احفظ العدّة التانية',
+    /* done */
+    done_ok:'تمام — خلصت العدّة', done_sub:'{n} مادة انعدّت',
+    done_off:'{n} مادة لسا فيها فرق', done_off_sub:'المسؤول رح يشوفها — مو شغلك إنت',
+    done_clean:'كلشي مظبوط ✓', unattributed:'⚠ في {n} سند شغّال ما محدّد منو مستودع — الأرقام ممكن تكون ناقصة شوي',
+    home_btn:'رجوع عالبداية', again:'عدّ شي تاني',
+    /* map */
+    map_ask:'وين هالمادة؟', map_why:'اكتب رقم الرف يلي عليه',
+    map_rack:'رقم الرف', map_level:'الطابق (اختياري)',
+    map_save:'احفظ وتالي', map_skip:'تخطّى', map_none:'كل المواد إلها مكان ✓',
+    map_none_sub:'ما ضل شي بلا رف بهالمستودع.', map_left:'ضل {n} مادة بلا رف',
+    map_saved:'انحفظ ✓', have:'عندك',
+    /* problems */
+    prob_ask:'شو المشاكل؟',
+    p_var:'فروقات بدها قرار', p_var_sub:'عدّات طلع فيها نقص أو زيادة',
+    p_neg:'كميات بالسالب', p_neg_sub:'مستحيل — يعني في فاتورة ناقصة',
+    p_stale:'مستودعات بدها جرد', p_stale_sub:'صار لها زمان ما انعدّت',
+    p_unmapped:'مواد بلا رف', p_unmapped_sub:'ما منعرف وين هي',
+    p_home:'بضاعة ببيوت', p_home_sub:'ما حدا فيه يعدّها',
+    p_none:'ما في ولا مشكلة ✓', mgr_only:'هالصفحة للمسؤولين',
+    var_expected:'المفروض', var_counted:'انعدّ', var_diff:'الفرق',
+    res_ask:'شو صار؟',
+    res_miscount:'خطأ عدّ', res_bill:'فاتورة ناقصة بالأمين', res_damaged:'تالف',
+    res_missing:'مفقود', res_adjust:'تسوية', res_save:'سجّل القرار', res_done:'انسجّل ✓',
+    neg_qty:'الكمية', store_word:'مستودع', items_word:'{n} مادة', value_word:'بقيمة',
+    value_floor:'على الأقل', of_which:'{n} منها بلا رف',
+    /* generic */
+    loading:'عم نحمّل…', retry:'جرّب مرة تانية', err:'صار خطأ',
+  },
+  en:{
+    title:'Stock count', back:'Back',
+    login_ask:'Sign in', login_why:'Same email and password as the warehouse app',
+    login_go:'Sign in', login_err:'Wrong email or password',
+    logout:'Sign out', logout_confirm:'Sign out?',
+    home_ask:'What do you want to do?',
+    home_count:'Count stock', home_count_sub:'Walk the racks and record what is there',
+    home_map:'Set item locations', home_map_sub:'Say which item is on which rack',
+    home_prob:'Problems', home_prob_sub:'Managers — differences and gaps',
+    hello:'Hello',
+    store_ask:'Where are you working?', store_why:'Pick the warehouse you are standing in',
+    store_home_no:'This is a home — it cannot be counted',
+    store_home_why:'Nobody can count stock kept in someone’s house, so nobody can be cleared of a shortfall in it. Talk to a manager.',
+    never:'Never counted', last_count:'Last count', days_ago:'{n} days ago',
+    scope_ask:'What do you want to count?',
+    scope_all:'The whole warehouse', scope_all_sub:'Every item in it',
+    scope_rack:'One rack only', scope_rack_sub:'Faster — count a rack and you are done',
+    scope_brand:'One brand', scope_brand_sub:'All Megaman, for example',
+    scope_abc:'The important items', scope_abc_sub:'The valuable ones — count these monthly',
+    rack_ask:'Which rack?', rack_none:'No racks recorded in this warehouse yet',
+    rack_none_sub:'Set item locations first, then you can count rack by rack.',
+    brand_ask:'Which brand?', brand_n:'{n} items',
+    ready_ask:'Ready?', ready_n:'{n} items to walk past',
+    ready_how:'We will show you one item at a time. Count what is on the shelf and type the number. We never show you what it should be — that is what makes the count real.',
+    ready_go:'Start', ready_empty:'Nothing to count for this choice',
+    resume:'You have an unfinished count', resume_go:'Continue it', resume_new:'Start over',
+    count_ask:'How many are there?', of:'{a} of {b}',
+    shelf:'Rack', nostock_hint:'Recorded here, but there may be none on the shelf',
+    zero:'There are none', skip:'Not found — skip',
+    zero_short:'None at all', skip_short:'Not found', prev_short:'Back',
+    next:'Confirm', finish:'Done — save', prev:'Previous item',
+    counted_tag:'counted', clear:'Clear',
+    quit:'Stop counting', quit_confirm:'Stop the count? What you entered will be lost.',
+    saving:'Saving…', save_err:'Could not save',
+    sql_missing:'Tables missing on the server — this file must be pasted:',
+    re_ask:'Count these again', re_why:'{n} items came out different. Count them again calmly — we do not show you the first number.',
+    re_go:'Save the second count',
+    done_ok:'Done — the count is finished', done_sub:'{n} items counted',
+    done_off:'{n} items still differ', done_off_sub:'A manager will look at them — not your job',
+    done_clean:'Everything matched ✓', unattributed:'⚠ {n} live slips name no warehouse — the figures may be slightly short',
+    home_btn:'Back to start', again:'Count something else',
+    map_ask:'Where is this item?', map_why:'Type the rack number it sits on',
+    map_rack:'Rack number', map_level:'Level (optional)',
+    map_save:'Save and next', map_skip:'Skip', map_none:'Every item has a location ✓',
+    map_none_sub:'Nothing is left without a rack in this warehouse.', map_left:'{n} items with no rack',
+    map_saved:'Saved ✓', have:'You have',
+    prob_ask:'What are the problems?',
+    p_var:'Differences needing a decision', p_var_sub:'Counts that came out short or over',
+    p_neg:'Negative quantities', p_neg_sub:'Impossible — a bill is missing',
+    p_stale:'Warehouses due a count', p_stale_sub:'Not counted for a long time',
+    p_unmapped:'Items with no rack', p_unmapped_sub:'We do not know where they are',
+    p_home:'Stock in private homes', p_home_sub:'Nobody can count it',
+    p_none:'No problems ✓', mgr_only:'This screen is for managers',
+    var_expected:'Expected', var_counted:'Counted', var_diff:'Difference',
+    res_ask:'What happened?',
+    res_miscount:'Miscount', res_bill:'Bill missing in Al-Ameen', res_damaged:'Damaged',
+    res_missing:'Missing', res_adjust:'Adjustment', res_save:'Record the decision', res_done:'Recorded ✓',
+    neg_qty:'Quantity', store_word:'Warehouse', items_word:'{n} items', value_word:'worth',
+    value_floor:'at least', of_which:'{n} of them with no rack',
+    loading:'Loading…', retry:'Try again', err:'Something went wrong',
+  },
+};
+let LANG = localStorage.getItem(LANG_KEY) || 'ar';
+function t(k, vars){
+  let s = (DICT[LANG] && DICT[LANG][k]) != null ? DICT[LANG][k] : (DICT.ar[k] != null ? DICT.ar[k] : k);
+  if(vars) for(const v in vars) s = s.split('{'+v+'}').join(vars[v]);
+  return s;
+}
+const FWD = () => (LANG === 'ar' ? '←' : '→');
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ltr = (s) => `<span class="ltr">${esc(s)}</span>`;
+// ⚠ a store or product name inside prose of the other script needs isolating,
+// or the neutral punctuation around it migrates (the Aug-15 «(2)» lesson).
+const bdi = (s) => `<bdi>${esc(s)}</bdi>`;
+
+/* ───────────────────────── auth (shared with index.html) ───────────────────────── */
+function savedAuth(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); }catch{ return null; } }
+async function getToken(){
+  let a = savedAuth();
+  if(!a) return null;
+  if(a.expires_at*1000 > Date.now()+60000) return a.access_token;
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
+    method:'POST', headers:{apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body: JSON.stringify({refresh_token:a.refresh_token})
+  });
+  if(!r.ok){ localStorage.removeItem(AUTH_KEY); return null; }
+  a = await r.json(); localStorage.setItem(AUTH_KEY, JSON.stringify(a));
+  return a.access_token;
+}
+function me(){
+  const a = savedAuth();
+  const u = a && a.user ? a.user : null;
+  const md = u && u.user_metadata ? u.user_metadata : {};
+  return { id: u ? u.id : null, name: md.name || (u ? String(u.email||'').split('@')[0] : ''), email: u ? u.email : '' };
+}
+
+/* ───────────────────────── REST ─────────────────────────
+   ⚠ Every read is PAGED. PostgREST caps a response at 1000 rows on this
+   instance, so a bare select silently truncates once a table outgrows it — and
+   a short count list looks exactly like «those items are not here». */
+async function rest(path, opts){
+  const tk = await getToken();
+  if(!tk) throw new Error('no-session');
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, Object.assign({}, opts, {
+    headers: Object.assign({
+      apikey: SUPABASE_ANON_KEY, Authorization:`Bearer ${tk}`, 'Content-Type':'application/json',
+    }, (opts && opts.headers) || {}),
+  }));
+  if(!r.ok){ const b = await r.text(); const e = new Error(b || ('HTTP '+r.status)); e.status = r.status; throw e; }
+  const txt = await r.text();
+  return txt ? JSON.parse(txt) : null;
+}
+async function restAll(path){
+  const out = [];
+  for(let from=0;;from+=1000){
+    const tk = await getToken();
+    if(!tk) throw new Error('no-session');
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers:{
+      apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${tk}`, Range:`${from}-${from+999}` } });
+    if(!r.ok){ const b = await r.text(); const e = new Error(b || ('HTTP '+r.status)); e.status = r.status; throw e; }
+    const page = await r.json();
+    out.push(...page);
+    if(page.length < 1000) break;
+  }
+  return out;
+}
+
+/* ───────────────────────── state ───────────────────────── */
+const S = {
+  screen:'boot', stack:[],
+  items:null, locs:null, stores:[], branch:null, isManager:true, sessions:[], abc:null,
+  store:'', scope:{kind:'store'}, list:[], idx:0, vals:{}, entries:null,
+  result:null, reIdx:0, reVals:{},
+  mapList:[], mapIdx:0, mapRack:'', mapLevel:'', mapSaved:0,
+  probs:null, probKind:'', res:{}, busy:false, msg:'',
+};
+const DRAFT = () => AU.DRAFT_KEY(me().id || 'anon');
+
+function go(screen, push, msg){
+  if(push !== false && S.screen !== screen) S.stack.push(S.screen);
+  // ⚠ the message is cleared FIRST and then set from the argument. It used to be
+  // cleared unconditionally, which wiped every fail-loud message a fraction of a
+  // second before the screen that exists to show it rendered — so «الجداول ناقصة
+  // … phase29_stock_counts.sql» became a bare «ما قدرنا نحفظ». Caught by the
+  // harness, never by eye: the screen still LOOKED like an error screen.
+  S.screen = screen; S.msg = msg || ''; window.scrollTo(0,0); render();
+}
+function back(){
+  const prev = S.stack.pop();
+  S.screen = prev || 'home'; S.msg = ''; window.scrollTo(0,0); render();
+}
+
+/* ───────────────────────── data ───────────────────────── */
+async function loadAll(){
+  const cols = 'code,name,latin_name,unit,qty,brand,image_url,cost,stock_by_store,synced_at';
+  const [items, locRows, branches, roles] = await Promise.all([
+    restAll(`dashboard_items?select=${cols}`),
+    restAll('item_locations?select=code,store,loc'),
+    restAll('branches?select=id,name,kind,active,stores&order=id'),
+    restAll('staff_roles?select=uid,role,branch_id'),
+  ]);
+  S.items = items;
+  const locs = new Map();
+  for(const r of locRows){ const l = locs.get(r.code) || []; l.push(r); locs.set(r.code, l); }
+  S.locs = locs;
+  const uid = me().id;
+  const mine = roles.find((r) => r.uid === uid) || null;
+  // ⚠ NO ROW = MANAGER, the phase24 default. Every account without a staff_roles
+  // row is a manager, which is how the whole team works today.
+  S.isManager = !mine || mine.role === 'manager';
+  S.branch = mine && mine.role === 'branch' ? (branches.find((b) => b.id === mine.branch_id) || null) : null;
+  const allStores = AU.storesSeen(items, []).filter(Boolean).sort((a,b)=>a.localeCompare(b,'ar'));
+  S.stores = AU.visibleStores({ branch:S.branch, branches, allStores });
+  S.abc = AU.abcClassify(items);
+  try{ S.sessions = await restAll('stock_count_sessions?select=*&order=started_at.desc'); }
+  catch(e){ if(AU.TABLE_MISSING.test(String(e.message))) S.sessions = []; else throw e; }
+}
+
+/* the count list for the current store+scope */
+function buildList(){
+  S.list = AU.countList(S.items, S.store, S.locs, S.scope, S.abc);
+}
+
+function saveDraft(){
+  try{ localStorage.setItem(DRAFT(), JSON.stringify({
+    store:S.store, scope:S.scope, vals:S.vals, idx:S.idx, at:Date.now() })); }catch{}
+}
+function clearDraft(){ try{ localStorage.removeItem(DRAFT()); }catch{} }
+function readDraft(){
+  try{
+    const d = JSON.parse(localStorage.getItem(DRAFT()) || 'null');
+    if(d && d.store && d.vals && Object.keys(d.vals).length) return d;
+  }catch{}
+  return null;
+}
+
+/* ───────────────────────── screens ─────────────────────────
+   Each renderer returns HTML for <main> and wires its own handlers in wire().
+   ONE QUESTION PER SCREEN — see the file header. */
+function render(){
+  const app = document.getElementById('app');
+  const R = SCREENS[S.screen] || SCREENS.home;
+  app.innerHTML = R.html();
+  // ⚠ «1 / 4» is a NUMERIC run: the slash is neutral, so in Arabic it renders as
+  // «4 / 1» and reads as item four of one. Screens whose title is a position mark
+  // themselves LTR. (The same family as every signed figure in this codebase.)
+  const ht = document.getElementById('htitle');
+  ht.textContent = R.title ? R.title() : t('title');
+  ht.dir = R.ltrTitle ? 'ltr' : '';
+  const b = document.getElementById('back');
+  b.hidden = !R.back;
+  document.documentElement.lang = LANG; document.documentElement.dir = LANG==='ar'?'rtl':'ltr';
+  document.getElementById('langbtn').textContent = LANG==='ar' ? 'EN' : 'ع';
+  document.getElementById('back').textContent = LANG==='ar' ? '→' : '←';
+  if(R.wire) R.wire();
+}
+const msgHtml = () => S.msg ? `<div class="note bad">${esc(S.msg)}</div>` : '';
+
+const SCREENS = {};
+
+/* ── boot / login ── */
+SCREENS.boot = { back:false, html:()=>`<div class="state">${t('loading')}</div>` };
+
+SCREENS.login = {
+  back:false, title:()=>t('login_ask'),
+  html:()=>`
+    <p class="ask">${t('login_ask')}</p>
+    <p class="askwhy">${t('login_why')}</p>
+    <div class="login">
+      <input id="em" type="email" autocomplete="username" placeholder="email">
+      <input id="pw" type="password" autocomplete="current-password" placeholder="••••••">
+      ${msgHtml()}
+      <button class="big hero" id="dogo">${t('login_go')}</button>
+    </div>`,
+  wire(){
+    document.getElementById('dogo').onclick = async ()=>{
+      const email = document.getElementById('em').value.trim();
+      const password = document.getElementById('pw').value;
+      try{
+        const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{
+          method:'POST', headers:{apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+          body: JSON.stringify({email, password})});
+        if(!r.ok) throw new Error();
+        localStorage.setItem(AUTH_KEY, JSON.stringify(await r.json()));
+        location.reload();
+      }catch{ S.msg = t('login_err'); render(); }
+    };
+  },
+};
+
+/* ── home: three doors, nothing else ── */
+SCREENS.home = {
+  back:false, title:()=>t('title'),
+  html(){
+    const d = readDraft();
+    const n = me().name;
+    return `
+      ${n ? `<p class="askwhy" style="margin-bottom:10px">${t('hello')} ${esc(n)} 👋</p>` : ''}
+      ${d ? `<div class="note warn">${t('resume')} — ${bdi(d.store)}</div>
+             <button class="big hero" id="resume">▶️ ${t('resume_go')}</button>` : ''}
+      <p class="ask">${t('home_ask')}</p>
+      <button class="big" id="tocount"><span class="ic">📦</span>
+        <span class="tx">${t('home_count')}<span class="sub">${t('home_count_sub')}</span></span>
+        <span class="go">${FWD()}</span></button>
+      <button class="big" id="tomap"><span class="ic">📍</span>
+        <span class="tx">${t('home_map')}<span class="sub">${t('home_map_sub')}</span></span>
+        <span class="go">${FWD()}</span></button>
+      ${S.isManager ? `<button class="big warnbtn" id="toprob"><span class="ic">⚠️</span>
+        <span class="tx">${t('home_prob')}<span class="sub">${t('home_prob_sub')}</span></span>
+        <span class="go">${FWD()}</span></button>` : ''}
+      <button class="big calm" id="out" style="margin-top:26px;font-size:17px">
+        <span class="ic">🚪</span><span class="tx">${t('logout')}</span></button>`;
+  },
+  wire(){
+    const r = document.getElementById('resume');
+    if(r) r.onclick = ()=>{
+      const d = readDraft();
+      S.store = d.store; S.scope = d.scope || {kind:'store'}; S.vals = d.vals || {};
+      buildList(); S.idx = Math.min(d.idx || 0, Math.max(0, S.list.length-1));
+      S.stack = ['home']; go('count', false);
+    };
+    document.getElementById('tocount').onclick = ()=>{ S.mode='count'; go('store'); };
+    document.getElementById('tomap').onclick   = ()=>{ S.mode='map';   go('store'); };
+    const p = document.getElementById('toprob');
+    if(p) p.onclick = ()=>{ go('problems'); };
+    document.getElementById('out').onclick = ()=>{
+      if(confirm(t('logout_confirm'))){ localStorage.removeItem(AUTH_KEY); location.reload(); }
+    };
+  },
+};
+
+/* ── one question: which warehouse ── */
+SCREENS.store = {
+  back:true, title:()=>S.mode==='map' ? t('home_map') : t('home_count'),
+  html(){
+    const stale = AU.storeStaleness(S.sessions, S.stores, S.items);
+    const byStore = new Map(stale.map((s)=>[s.store,s]));
+    return `
+      <p class="ask">${t('store_ask')}</p>
+      <p class="askwhy">${t('store_why')}</p>
+      ${S.stores.map((s)=>{
+        const st = byStore.get(s) || {};
+        const home = AU.isHomeStore(s);
+        const sub = home ? t('store_home_no')
+          : st.last ? `${t('last_count')}: ${ltr(String(st.last).slice(0,10))}`
+                    : t('never');
+        return `<button class="big${home?' warnbtn':''}" data-store="${esc(s)}">
+          <span class="ic">${home?'🏠':'🏬'}</span>
+          <span class="tx">${esc(s)}<span class="sub">${sub}</span></span>
+          <span class="go">${FWD()}</span></button>`;
+      }).join('')}`;
+  },
+  wire(){
+    document.querySelectorAll('[data-store]').forEach((b)=>{
+      b.onclick = ()=>{
+        const s = b.getAttribute('data-store');
+        // ⚠ a private home is REFUSED, with the reason — never silently disabled
+        if(AU.isHomeStore(s)){ S.store = s; go('homestore'); return; }
+        S.store = s;
+        if(S.mode === 'map'){ S.mapList = AU.unmappedList(S.items, S.locs, s); S.mapIdx = 0; S.mapSaved = 0; go('map'); }
+        else go('scope');
+      };
+    });
+  },
+};
+
+SCREENS.homestore = {
+  back:true, title:()=>t('home_prob'),
+  html:()=>`
+    <div class="doneicon">🏠</div>
+    <p class="donebig">${t('store_home_no')}</p>
+    <p class="donesub">${esc(S.store)}</p>
+    <div class="note warn">${t('store_home_why')}</div>
+    <button class="big hero" id="bk">${t('back')}</button>`,
+  wire(){ document.getElementById('bk').onclick = back; },
+};
+
+/* ── one question: what to count ── */
+SCREENS.scope = {
+  back:true, title:()=>esc(S.store),
+  html(){
+    const racks = AU.racksAt(S.items, S.locs, S.store);
+    return `
+      <p class="ask">${t('scope_ask')}</p>
+      <p class="askwhy">${esc(S.store)}</p>
+      <button class="big" data-k="store"><span class="ic">🏬</span>
+        <span class="tx">${t('scope_all')}<span class="sub">${t('scope_all_sub')}</span></span><span class="go">${FWD()}</span></button>
+      <button class="big" data-k="rack"><span class="ic">🗄️</span>
+        <span class="tx">${t('scope_rack')}<span class="sub">${racks.length ? t('scope_rack_sub') : t('rack_none')}</span></span><span class="go">${FWD()}</span></button>
+      <button class="big" data-k="brand"><span class="ic">🏷️</span>
+        <span class="tx">${t('scope_brand')}<span class="sub">${t('scope_brand_sub')}</span></span><span class="go">${FWD()}</span></button>
+      <button class="big" data-k="abc"><span class="ic">⭐</span>
+        <span class="tx">${t('scope_abc')}<span class="sub">${t('scope_abc_sub')}</span></span><span class="go">${FWD()}</span></button>`;
+  },
+  wire(){
+    document.querySelectorAll('[data-k]').forEach((b)=>{
+      b.onclick = ()=>{
+        const k = b.getAttribute('data-k');
+        if(k === 'rack'){ go('rack'); return; }
+        if(k === 'brand'){ go('brand'); return; }
+        S.scope = k === 'abc' ? {kind:'abc', cls:'A'} : {kind:'store'};
+        buildList(); go('ready');
+      };
+    });
+  },
+};
+
+SCREENS.rack = {
+  back:true, title:()=>t('scope_rack'),
+  html(){
+    const racks = AU.racksAt(S.items, S.locs, S.store);
+    if(!racks.length) return `<p class="ask">${t('rack_none')}</p><p class="askwhy">${t('rack_none_sub')}</p>`;
+    return `<p class="ask">${t('rack_ask')}</p>` + racks.map((r)=>
+      `<button class="big" data-rack="${esc(r)}"><span class="ic">🗄️</span>
+        <span class="tx">${t('shelf')} ${ltr(r)}</span><span class="go">${FWD()}</span></button>`).join('');
+  },
+  wire(){
+    document.querySelectorAll('[data-rack]').forEach((b)=>{
+      b.onclick = ()=>{ S.scope = {kind:'rack', rack:b.getAttribute('data-rack')}; buildList(); go('ready'); };
+    });
+  },
+};
+
+SCREENS.brand = {
+  back:true, title:()=>t('scope_brand'),
+  html(){
+    const bs = AU.brandsAt(S.items, S.store);
+    if(!bs.length) return `<p class="ask">${t('ready_empty')}</p>`;
+    return `<p class="ask">${t('brand_ask')}</p>` + bs.map((b)=>
+      `<button class="big" data-brand="${esc(b.brand)}"><span class="ic">🏷️</span>
+        <span class="tx">${esc(b.brand)}</span><span class="n">${t('brand_n',{n:b.n})}</span></button>`).join('');
+  },
+  wire(){
+    document.querySelectorAll('[data-brand]').forEach((b)=>{
+      b.onclick = ()=>{ S.scope = {kind:'brand', brand:b.getAttribute('data-brand')}; buildList(); go('ready'); };
+    });
+  },
+};
+
+/* ── ready: say what is about to happen, in words ── */
+SCREENS.ready = {
+  back:true, title:()=>esc(S.store),
+  html(){
+    if(!S.list.length) return `<p class="ask">${t('ready_empty')}</p>
+      <button class="big" id="bk">${t('back')}</button>`;
+    return `
+      <div class="doneicon">📦</div>
+      <p class="donebig">${t('ready_n',{n:S.list.length})}</p>
+      <p class="donesub">${esc(S.store)}</p>
+      <div class="note">${t('ready_how')}</div>
+      <button class="big hero" id="start">${t('ready_go')} ${FWD()}</button>`;
+  },
+  wire(){
+    const b = document.getElementById('bk'); if(b) b.onclick = back;
+    const s = document.getElementById('start');
+    if(s) s.onclick = ()=>{ S.vals = {}; S.idx = 0; clearDraft(); go('count'); };
+  },
+};
+
+/* ── THE COUNTER: one item per screen. ⚠ NO QUANTITY IS SHOWN. ── */
+let PAD = '';
+function padHtml(val, hint){
+  return `
+    <div class="num${val ? '' : ' empty'}" id="numbox">${val ? esc(val) : '—'}</div>
+    <div class="pad">
+      ${[1,2,3,4,5,6,7,8,9].map((d)=>`<button class="key" data-d="${d}">${d}</button>`).join('')}
+      <button class="key del" data-d="del">${t('clear')}</button>
+      <button class="key" data-d="0">0</button>
+      <button class="key" data-d=".">.</button>
+      <button class="key plus" data-d="+1" style="grid-column:1 / -1">+1</button>
+    </div>`;
+}
+function wirePad(onChange){
+  document.querySelectorAll('[data-d]').forEach((k)=>{
+    k.onclick = ()=>{
+      const d = k.getAttribute('data-d');
+      if(d === 'del') PAD = '';                 // clear the whole entry — see the head comment
+      else if(d === '+1'){ const n = AU.numOf(PAD); PAD = String((n == null ? 0 : n) + 1); }
+      else if(d === '.'){ if(!PAD.includes('.')) PAD = (PAD || '0') + '.'; }
+      else PAD = (PAD === '0' ? '' : PAD) + d;
+      onChange();
+    };
+  });
+}
+
+SCREENS.count = {
+  back:false, ltrTitle:true, title(){ return `${S.idx+1} / ${S.list.length}`; },
+  html(){
+    const r = S.list[S.idx];
+    if(!r) return `<div class="state">${t('loading')}</div>`;
+    const pct = Math.round(((S.idx) / Math.max(1,S.list.length)) * 100);
+    return `
+      <div class="prog"><div class="progbar"><i style="width:${pct}%"></i></div></div>
+      <div class="itemcard">
+        <div class="shot">${r.image_url ? `<img src="${esc(r.image_url)}" alt="">` : `<span class="noimg">📦</span>`}</div>
+        <div class="body">
+          <p class="iname">${esc(r.name || r.code)}</p>
+          <div class="imeta">
+            <span class="tag ltr">${esc(r.code)}</span>
+            ${r.loc ? `<span class="tag shelf">📍 ${esc(r.loc)}</span>` : ''}
+            ${r.unit ? `<span class="tag">${esc(r.unit)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <p class="ask q">${t('count_ask')}</p>
+      ${padHtml(PAD)}
+      <button class="big hero" id="next" ${PAD === '' ? 'disabled' : ''}>${
+        S.idx === S.list.length-1 ? t('finish') : t('next')} ${FWD()}</button>
+      <div class="actrow">
+        <button class="act" id="zero"><span class="ic">0️⃣</span>${t('zero_short')}</button>
+        <button class="act" id="skip"><span class="ic">⏭️</span>${t('skip_short')}</button>
+        ${S.idx > 0 ? `<button class="act" id="prev"><span class="ic">↩️</span>${t('prev_short')}</button>` : ''}
+      </div>
+      <button class="quitlink" id="quit">${t('quit')}</button>`;
+  },
+  wire(){
+    const refresh = ()=>{
+      const box = document.getElementById('numbox');
+      box.textContent = PAD || '—'; box.classList.toggle('empty', !PAD);
+      document.getElementById('next').disabled = PAD === '';
+    };
+    wirePad(refresh);
+    const advance = (value)=>{
+      const r = S.list[S.idx];
+      if(value === null) delete S.vals[r.code]; else S.vals[r.code] = value;
+      saveDraft(); PAD = '';
+      if(S.idx < S.list.length - 1){ S.idx++; render(); }
+      else doSave();
+    };
+    document.getElementById('next').onclick = ()=>{ if(PAD !== '') advance(PAD); };
+    document.getElementById('zero').onclick = ()=> advance('0');
+    document.getElementById('skip').onclick = ()=> advance(null);
+    const p = document.getElementById('prev');
+    if(p) p.onclick = ()=>{ S.idx--; PAD = S.vals[S.list[S.idx].code] || ''; render(); };
+    document.getElementById('quit').onclick = ()=>{
+      if(!confirm(t('quit_confirm'))) return;
+      S.vals = {}; PAD=''; clearDraft(); S.stack = []; go('home', false);
+    };
+  },
+};
+
+SCREENS.saving = { back:false, html:()=>`<div class="state">${t('saving')}</div>` };
+
+/* ── save: expected is computed HERE, server-fresh (the Aug-9 cashbox lesson) ── */
+async function doSave(){
+  const entries = S.list.map((r)=>({ code:r.code, counted: AU.numOf(S.vals[r.code]), loc:r.loc }))
+    .filter((e)=> e.counted != null);
+  if(!entries.length){ S.stack=[]; go('home', false); return; }
+  S.entries = entries; go('saving', false);
+  try{
+    const codes = entries.map((e)=>e.code);
+    const fresh = [];
+    for(let i=0;i<codes.length;i+=100){
+      const chunk = codes.slice(i,i+100).map(encodeURIComponent).join(',');
+      fresh.push(...await rest(`dashboard_items?select=code,qty,stock_by_store,synced_at&code=in.(${chunk})`));
+    }
+    const byCode = new Map(fresh.map((r)=>[r.code,r]));
+    const syncedAt = fresh.reduce((m,r)=> (r.synced_at && r.synced_at > m ? r.synced_at : m), '') || null;
+    const live = await rest(`withdrawals?select=id,kind,status,store,customer,items,processed_at,created_at&status=in.(pending,flagged)&limit=1000`);
+    let doneRows = [];
+    if(syncedAt) doneRows = await rest(`withdrawals?select=id,kind,status,store,customer,items,processed_at,created_at&status=eq.done&processed_at=gt.${encodeURIComponent(syncedAt)}&limit=1000`);
+    const slips = [...live, ...doneRows];
+    const pending = AU.pendingMovements(slips, S.store, syncedAt);
+    const unattributed = AU.unattributedSlips(slips, syncedAt);
+
+    const u = me();
+    const sess = (await rest('stock_count_sessions', { method:'POST', headers:{Prefer:'return=representation'},
+      body: JSON.stringify([{ store:S.store, scope:AU.scopeKey(S.scope), started_by:u.id,
+        started_by_name:u.name, synced_at:syncedAt,
+        ...(S.branch ? { branch_id:S.branch.id } : {}) }]) }))[0];
+
+    const rows = AU.buildCountRows({ sessionId:sess.id, store:S.store, entries, byCode, pending,
+      uid:u.id, authorName:u.name });
+    const saved = [];
+    for(let i=0;i<rows.length;i+=200){
+      saved.push(...await rest('stock_counts', { method:'POST', headers:{Prefer:'return=representation'},
+        body: JSON.stringify(rows.slice(i,i+200)) }));
+    }
+    const off = saved.filter((r)=> AU.isOff(r.variance));
+    S.result = { session:sess, rows:saved, off, unattributed };
+    clearDraft();
+    if(off.length){ S.reIdx = 0; S.reVals = {}; PAD=''; go('recount', false); }
+    else { await closeSession(sess.id, saved.length, 0); go('done', false); }
+    loadAll().catch(()=>{});
+  }catch(e){
+    const m = String(e.message || e);
+    go('saveerr', false, AU.TABLE_MISSING.test(m)
+      ? `${t('sql_missing')} ${AU.COUNT_SQL_FILE}` : `${t('save_err')} — ${m.slice(0,140)}`);
+  }
+}
+async function closeSession(id, items, off){
+  await rest(`stock_count_sessions?id=eq.${id}`, { method:'PATCH',
+    body: JSON.stringify({ status:'closed', closed_at:new Date().toISOString(), items, off }) });
+}
+
+SCREENS.saveerr = {
+  back:false, title:()=>t('err'),
+  html:()=>`<div class="doneicon">😕</div><p class="donebig">${t('save_err')}</p>
+    ${msgHtml()}
+    <button class="big hero" id="retry">${t('retry')}</button>
+    <button class="big calm" id="hm">${t('home_btn')}</button>`,
+  wire(){
+    document.getElementById('retry').onclick = ()=> doSave();
+    document.getElementById('hm').onclick = ()=>{ S.stack=[]; go('home', false); };
+  },
+};
+
+/* ── recount: the SAME blind screen, only the items that differed ── */
+SCREENS.recount = {
+  back:false, ltrTitle:true, title(){ return `${S.reIdx+1} / ${S.result.off.length}`; },
+  html(){
+    const off = S.result.off;
+    const r = off[S.reIdx];
+    const meta = S.list.find((x)=>x.code === r.code) || { code:r.code, name:r.code };
+    const pct = Math.round((S.reIdx / Math.max(1,off.length)) * 100);
+    return `
+      <p class="ask">${t('re_ask')}</p>
+      <div class="note warn">${t('re_why',{n:off.length})}</div>
+      <div class="prog"><div class="progbar"><i style="width:${pct}%"></i></div>
+        <div class="progtx"><span>${t('of',{a:S.reIdx+1,b:off.length})}</span><span></span></div></div>
+      <div class="itemcard">
+        <div class="shot">${meta.image_url ? `<img src="${esc(meta.image_url)}" alt="">` : `<span class="noimg">📦</span>`}</div>
+        <div class="body">
+          <p class="iname">${esc(meta.name || r.code)}</p>
+          <div class="imeta"><span class="tag ltr">${esc(r.code)}</span>
+            ${meta.loc ? `<span class="tag shelf">📍 ${esc(meta.loc)}</span>` : ''}</div>
+        </div>
+      </div>
+      <p class="ask q">${t('count_ask')}</p>
+      ${padHtml(PAD)}
+      <button class="big hero" id="next" ${PAD===''?'disabled':''}>${
+        S.reIdx === off.length-1 ? t('re_go') : t('next')} ${FWD()}</button>
+      <div class="actrow"><button class="act" id="zero"><span class="ic">0️⃣</span>${t('zero_short')}</button></div>`;
+  },
+  wire(){
+    const refresh = ()=>{
+      const box = document.getElementById('numbox');
+      box.textContent = PAD || '—'; box.classList.toggle('empty', !PAD);
+      document.getElementById('next').disabled = PAD === '';
+    };
+    wirePad(refresh);
+    const advance = async (v)=>{
+      S.reVals[S.result.off[S.reIdx].code] = v; PAD = '';
+      if(S.reIdx < S.result.off.length - 1){ S.reIdx++; render(); }
+      else await doRecount();
+    };
+    document.getElementById('next').onclick = ()=>{ if(PAD!=='') advance(PAD); };
+    document.getElementById('zero').onclick = ()=> advance('0');
+  },
+};
+
+async function doRecount(){
+  go('saving', false);
+  try{
+    const updated = [];
+    for(const r of S.result.off){
+      const v = AU.numOf(S.reVals[r.code]);
+      if(v == null) continue;
+      const variance = AU.varianceOf(r.expected, null, v);
+      const u = await rest(`stock_counts?id=eq.${r.id}`, { method:'PATCH', headers:{Prefer:'return=representation'},
+        body: JSON.stringify({ recount: AU.r3(v), variance }) });
+      updated.push(...u);
+    }
+    const byId = new Map(updated.map((u)=>[u.id,u]));
+    const finalRows = S.result.rows.map((r)=> byId.get(r.id) || r);
+    const off = finalRows.filter((r)=> AU.isOff(r.variance)).length;
+    await closeSession(S.result.session.id, finalRows.length, off);
+    S.result = Object.assign({}, S.result, { rows:finalRows, offFinal:off });
+    go('done', false);
+    loadAll().catch(()=>{});
+  }catch(e){ go('saveerr', false, `${t('save_err')} — ${String(e.message).slice(0,140)}`); }
+}
+
+/* ── done ── */
+SCREENS.done = {
+  back:false, title:()=>t('title'),
+  html(){
+    const r = S.result || { rows:[], off:[] };
+    const off = r.offFinal != null ? r.offFinal : r.off.length;
+    return `
+      <div class="doneicon">${off ? '📋' : '✅'}</div>
+      <p class="donebig">${t('done_ok')}</p>
+      <p class="donesub">${t('done_sub',{n:r.rows.length})}</p>
+      ${off ? `<div class="note warn"><b>${t('done_off',{n:off})}</b><br>${t('done_off_sub')}</div>`
+            : `<div class="note good">${t('done_clean')}</div>`}
+      ${r.unattributed ? `<div class="note warn">${t('unattributed',{n:r.unattributed})}</div>` : ''}
+      <button class="big hero" id="again">${t('again')}</button>
+      <button class="big calm" id="hm">${t('home_btn')}</button>`;
+  },
+  wire(){
+    document.getElementById('again').onclick = ()=>{ S.vals={}; PAD=''; S.stack=['home']; S.mode='count'; go('store', false); };
+    document.getElementById('hm').onclick = ()=>{ S.stack=[]; go('home', false); };
+  },
+};
+
+/* ── MAP: one item per screen, and here the quantity IS shown ── */
+SCREENS.map = {
+  back:true, ltrTitle:true, title(){ return `${Math.min(S.mapIdx+1, S.mapList.length)} / ${S.mapList.length}`; },
+  html(){
+    if(!S.mapList.length) return `
+      <div class="doneicon">✅</div><p class="donebig">${t('map_none')}</p>
+      <p class="donesub">${t('map_none_sub')}</p>
+      <button class="big hero" id="hm">${t('home_btn')}</button>`;
+    if(S.mapIdx >= S.mapList.length) return `
+      <div class="doneicon">🎉</div><p class="donebig">${t('map_none')}</p>
+      <p class="donesub">${t('map_saved')} — ${S.mapSaved}</p>
+      <button class="big hero" id="hm">${t('home_btn')}</button>`;
+    const r = S.mapList[S.mapIdx];
+    const pct = Math.round((S.mapIdx / Math.max(1,S.mapList.length)) * 100);
+    return `
+      <div class="prog"><div class="progbar"><i style="width:${pct}%"></i></div>
+        <div class="progtx"><span>${t('map_left',{n:S.mapList.length - S.mapIdx})}</span><span>${S.mapSaved} ✓</span></div></div>
+      <div class="itemcard">
+        <div class="shot">${r.image_url ? `<img src="${esc(r.image_url)}" alt="">` : `<span class="noimg">📦</span>`}</div>
+        <div class="body">
+          <p class="iname">${esc(r.name || r.code)}</p>
+          <div class="imeta"><span class="tag ltr">${esc(r.code)}</span>
+            <span class="tag qty">${t('have')} ${ltr(r.qty)}${r.unit ? ' ' + esc(r.unit) : ''}</span></div>
+        </div>
+      </div>
+      <p class="ask q">${t('map_ask')}</p>
+      <p class="askwhy">${t('map_why')}</p>
+      ${padHtml(PAD)}
+      ${msgHtml()}
+      <button class="big hero" id="save" ${PAD===''?'disabled':''}>${t('map_save')} ${FWD()}</button>
+      <div class="actrow"><button class="act" id="skip"><span class="ic">⏭️</span>${t('map_skip')}</button></div>`;
+  },
+  wire(){
+    const hm = document.getElementById('hm');
+    if(hm){ hm.onclick = ()=>{ S.stack=[]; go('home', false); }; return; }
+    const refresh = ()=>{
+      const box = document.getElementById('numbox');
+      box.textContent = PAD || '—'; box.classList.toggle('empty', !PAD);
+      document.getElementById('save').disabled = PAD === '';
+    };
+    wirePad(refresh);
+    document.getElementById('skip').onclick = ()=>{ PAD=''; S.mapIdx++; render(); };
+    document.getElementById('save').onclick = async ()=>{
+      const r = S.mapList[S.mapIdx];
+      const loc = AU.composeLoc(PAD, '');
+      if(!loc) return;
+      const btn = document.getElementById('save'); btn.disabled = true; btn.textContent = t('saving');
+      try{
+        await rest('item_locations?on_conflict=code,store', { method:'POST',
+          headers:{ Prefer:'resolution=merge-duplicates' },
+          body: JSON.stringify([{ code:r.code, store:S.store, loc, updated_by:me().name,
+            updated_at:new Date().toISOString() }]) });
+        const l = S.locs.get(r.code) || []; l.push({ code:r.code, store:S.store, loc }); S.locs.set(r.code, l);
+        S.mapSaved++; PAD=''; S.mapIdx++; S.msg=''; render();
+      }catch(e){
+        S.msg = `${t('save_err')} — ${String(e.message).slice(0,120)}`; render();
+      }
+    };
+  },
+};
+
+/* ── PROBLEMS (managers). Still big cards → one list per problem. ── */
+function computeProblems(){
+  const stale = AU.storeStaleness(S.sessions, S.stores, S.items);
+  return {
+    neg: AU.negativeStock(S.items),
+    stale: stale.filter((s)=>s.stale),
+    unmapped: AU.unmappedByStore(S.items, S.locs, S.stores).filter((u)=>u.n>0),
+    home: AU.homeStock(S.items, S.stores),
+  };
+}
+SCREENS.problems = {
+  back:true, title:()=>t('home_prob'),
+  html(){
+    if(!S.isManager) return `<p class="ask">${t('mgr_only')}</p>`;
+    const p = S.probs || (S.probs = computeProblems());
+    const v = S.openVar || [];
+    const card = (id, ic, k, n, tone) => `
+      <button class="big${n?(tone||' warnbtn'):''}" data-p="${id}" ${n?'':'disabled'}>
+        <span class="ic">${ic}</span>
+        <span class="tx">${t('p_'+k)}<span class="sub">${t('p_'+k+'_sub')}</span></span>
+        <span class="n">${n}</span></button>`;
+    const total = v.length + p.neg.length + p.stale.length + p.unmapped.length + p.home.length;
+    return `
+      <p class="ask">${t('prob_ask')}</p>
+      ${total ? '' : `<div class="note good">${t('p_none')}</div>`}
+      ${card('var','⚖️','var',v.length)}
+      ${card('neg','➖','neg',p.neg.length)}
+      ${card('stale','🗓️','stale',p.stale.length)}
+      ${card('unmapped','📍','unmapped',p.unmapped.length)}
+      ${card('home','🏠','home',p.home.length)}`;
+  },
+  wire(){
+    document.querySelectorAll('[data-p]').forEach((b)=>{
+      b.onclick = ()=>{ S.probKind = b.getAttribute('data-p'); go('problist'); };
+    });
+  },
+};
+
+SCREENS.problist = {
+  back:true, title(){ return t('p_'+S.probKind); },
+  html(){
+    const p = S.probs || computeProblems();
+    const k = S.probKind;
+    if(k === 'var'){
+      const rows = S.openVar || [];
+      const RES = ['miscount','bill','damaged','missing','adjust'];
+      return `<p class="ask">${t('p_var')}</p><p class="askwhy">${t('p_var_sub')}</p>` + rows.map((r)=>{
+        const it = (S.items||[]).find((i)=>i.code===r.code) || {};
+        const e = S.res[r.id] || {};
+        const d = Number(r.variance);
+        return `<div class="row" data-var="${esc(r.id)}">
+          <div class="rowtop"><span class="rowname">${esc(it.name || r.code)}</span>
+            <span class="figure ${d<0?'bad':'good'}">${d<0?'−':'+'}${ltr(Math.abs(d))}</span></div>
+          <div class="rowsub">${esc(r.store)} · ${ltr(r.code)} · ${t('var_expected')} ${ltr(r.expected)} · ${t('var_counted')} ${ltr(r.recount != null ? r.recount : r.counted)}</div>
+          <div class="rowsub" style="margin-top:8px">${t('res_ask')}</div>
+          <div class="reschips">${RES.map((x)=>`<button class="res${e.kind===x?' on':''}" data-res="${esc(r.id)}" data-kind="${x}">${t('res_'+x)}</button>`).join('')}</div>
+          <button class="savebtn" data-save="${esc(r.id)}" ${e.kind?'':'disabled'}>${t('res_save')}</button>
+        </div>`;
+      }).join('') || `<div class="note good">${t('p_none')}</div>`;
+    }
+    if(k === 'neg') return `<p class="ask">${t('p_neg')}</p><p class="askwhy">${t('p_neg_sub')}</p>` +
+      p.neg.map((i)=>`<div class="row"><div class="rowtop"><span class="rowname">${esc(i.name||i.code)}</span>
+        <span class="figure bad">−${ltr(Math.abs(i.qty))}</span></div>
+        <div class="rowsub">${ltr(i.code)}${i.brand?' · '+esc(i.brand):''}</div></div>`).join('');
+    if(k === 'stale') return `<p class="ask">${t('p_stale')}</p><p class="askwhy">${t('p_stale_sub')}</p>` +
+      p.stale.map((s)=>`<div class="row"><div class="rowtop"><span class="rowname">${esc(s.store)}</span>
+        <span class="figure">${s.days==null?t('never'):t('days_ago',{n:s.days})}</span></div></div>`).join('');
+    if(k === 'unmapped') return `<p class="ask">${t('p_unmapped')}</p><p class="askwhy">${t('p_unmapped_sub')}</p>` +
+      p.unmapped.map((u)=>`<div class="row"><div class="rowtop">
+        <span class="rowname">${u.home?'🏠 ':''}${esc(u.store)}</span>
+        <span class="figure">${ltr(u.n)} / ${ltr(u.withStock)}</span></div>
+        <div class="rowsub">${t('of_which',{n:u.n})}</div></div>`).join('');
+    if(k === 'home') return `<p class="ask">${t('p_home')}</p><p class="askwhy">${t('p_home_sub')}</p>` +
+      p.home.map((h)=>`<div class="row"><div class="rowtop"><span class="rowname">🏠 ${esc(h.store)}</span>
+        <span class="figure">${h.partial?t('value_floor')+' ':''}${ltr('$'+h.value)}</span></div>
+        <div class="rowsub">${t('items_word',{n:h.items})}</div></div>`).join('');
+    return '';
+  },
+  wire(){
+    document.querySelectorAll('[data-res]').forEach((b)=>{
+      b.onclick = ()=>{
+        const id = b.getAttribute('data-res');
+        S.res[id] = Object.assign({}, S.res[id], { kind: b.getAttribute('data-kind') });
+        render();
+      };
+    });
+    document.querySelectorAll('[data-save]').forEach((b)=>{
+      b.onclick = async ()=>{
+        const id = b.getAttribute('data-save');
+        const e = S.res[id]; if(!e || !e.kind) return;
+        b.disabled = true; b.textContent = t('saving');
+        try{
+          await rest(`stock_counts?id=eq.${id}`, { method:'PATCH', body: JSON.stringify({
+            resolution: t('res_'+e.kind), resolved_by: me().name, resolved_at: new Date().toISOString() }) });
+          S.openVar = (S.openVar||[]).filter((r)=> String(r.id) !== String(id));
+          render();
+        }catch(err){ b.disabled = false; b.textContent = `${t('save_err')}`; }
+      };
+    });
+  },
+};
+
+/* ───────────────────────── boot ───────────────────────── */
+document.getElementById('back').onclick = back;
+document.getElementById('langbtn').onclick = ()=>{
+  LANG = LANG === 'ar' ? 'en' : 'ar';
+  try{ localStorage.setItem(LANG_KEY, LANG); }catch{}
+  render();
+};
+
+(async function init(){
+  render();
+  if(!savedAuth()){ go('login', false); return; }
+  try{
+    await loadAll();
+    try{
+      const v = await restAll('stock_counts?select=*&resolution=is.null&variance=neq.0&order=counted_at.desc');
+      S.openVar = AU.openVariances(v);
+    }catch(e){ S.openVar = []; }
+    S.probs = null;
+    go('home', false);
+  }catch(e){
+    if(String(e.message) === 'no-session'){ go('login', false); return; }
+    S.msg = String(e.message).slice(0,200);
+    document.getElementById('app').innerHTML =
+      `<div class="doneicon">😕</div><p class="donebig">${t('err')}</p>${msgHtml()}`;
+  }
+})();
+</script>
+</body>
+</html>
