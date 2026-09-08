@@ -8,6 +8,19 @@
      sticky header's gradient below. -->
 <meta name="theme-color" content="#221D16">
 <title>Lightware — المستودع</title>
+<!-- The warehouse's own mark: the house L. redrawn as a W. on a cream tile. The
+     GROUND is what tells it from the storefront and the portal at 16px — a letter
+     is 3 or 4 pixels of ink there and every letter looks the same. Masters + the
+     reasoning: brand/logo/build_appicons.py. ⚠ Edit them THERE and copy across.
+     ⚠ Both files must also be listed in deploy.sh's warehouse block: that site is
+     staged file by file, so anything not copied there 404s live. -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<!-- Amr keeps this page on his phone's home screen (§5A), where it had no icon at
+     all and iOS drew a screenshot of the page. iOS truncates the label to roughly
+     12 characters, so it gets the short name, not the whole <title>. Deliberately
+     NOT -capable: that launches standalone and drops Safari's back button. -->
+<meta name="apple-mobile-web-app-title" content="المستودع">
   <!-- Internal tool. Login-walled, but the shell HTML is public on GitHub Pages —
        without this Google indexes a staff console under the brand name and
        competes with www for the "Lightware" query. robots.txt ALLOWS crawling
