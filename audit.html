@@ -220,6 +220,39 @@
 const SUPABASE_URL = "https://ohprikkwnymjtcxzoylq.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ocHJpa2t3bnltanRjeHpveWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNDQ5MjQsImV4cCI6MjA5ODkyMDkyNH0.0nI52H8ZV6fuj948WGk-ZLDVSgIu9y59_9R2a_jZST0";
 const AUTH_KEY = "lw_dash_auth";
+/* «نسخة العرض» (phase32, Sep 17 2026): a session whose user_metadata.demo is
+   true is a client-meeting login. Every /rest/v1/<table> it makes is
+   rewritten to /rest/v1/demo_<table> — the synthetic company — at the fetch
+   layer, checked at CALL time (the login lands after this script runs). RLS
+   on the server refuses that account every real table anyway; this is what
+   makes its screens show data at all. Same rule as the portal's src/demo.js. */
+(function(){
+  const T = new Set(["withdrawals","payments","fund_entries","fund_counts","quotes","transfers",
+    "abill_prices","alameen_docs","alameen_bills","alameen_bills_2025","gl_docs","gl_docs_2025",
+    "gl_accounts","gl_accounts_2025","irth_docs","irth_accounts","funds","fx_rates","price_memory",
+    "price_memory_2025","site_events","elias_adjust","elias_settings","customer_notes","service_status",
+    "statements","stock_counts","stock_count_sessions","item_locations","customers","dashboard_items","branches","supplier_costs"]);
+  const R = `${SUPABASE_URL}/rest/v1/`;
+  const isDemo = () => { try { const a = JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); return !!(a && a.user && a.user.user_metadata && a.user.user_metadata.demo === true); } catch { return false; } };
+  const f = window.fetch.bind(window);
+  window.fetch = (u, i) => {
+    if (typeof u === "string" && u.startsWith(R) && isDemo()) {
+      const m = /^([a-z0-9_]+)(.*)$/s.exec(u.slice(R.length));
+      if (m && T.has(m[1])) u = R + "demo_" + m[1] + m[2];
+    }
+    return f(u, i);
+  };
+  const band = () => {
+    if (!isDemo() || document.getElementById("demoband")) return;
+    const d = document.createElement("div"); d.id = "demoband";
+    d.style.cssText = "position:sticky;top:0;z-index:999;background:repeating-linear-gradient(135deg,#E8870B 0 12px,#F2A23A 12px 24px);color:#1C1813;font-weight:700;font-size:13px;text-align:center;padding:6px 12px;";
+    d.textContent = "🧪 نسخة عرض — كل الأسامي والأرقام وهمية · Demo — all names and figures are dummy";
+    document.body.prepend(d);
+  };
+  if (document.body) band(); else document.addEventListener("DOMContentLoaded", band);
+  window.__lwDemoBand = band;
+})();
+
 const LANG_KEY = "lw_wh_lang";
 
 /* ───────────────────────── words ─────────────────────────
