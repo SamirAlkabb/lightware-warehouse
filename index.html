@@ -358,11 +358,18 @@ const AUTH_KEY = "lw_dash_auth";
 function savedAuth(){
   try { return JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch { return null; }
 }
+let refreshing = null;   // the ONE in-flight refresh, shared by concurrent callers
 async function getToken(){
-  let a = savedAuth();
+  const a = savedAuth();
   if(!a) return null;
   if(a.expires_at*1000 > Date.now()+60000) return a.access_token;
-  // expired -> refresh (vanilla GoTrue REST, no library)
+  // expired -> refresh (vanilla GoTrue REST, no library). The three loaders
+  // below now run side by side; refresh tokens ROTATE, so three parallel
+  // refreshes would race and the losers would sign the person out.
+  if(!refreshing) refreshing = refreshAuth(a).finally(()=>{ refreshing = null; });
+  return refreshing;
+}
+async function refreshAuth(a){
   const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
     method:"POST", headers:{apikey:SUPABASE_ANON_KEY,"Content-Type":"application/json"},
     body: JSON.stringify({refresh_token:a.refresh_token})
@@ -372,24 +379,54 @@ async function getToken(){
   localStorage.setItem(AUTH_KEY, JSON.stringify(a));
   return a.access_token;
 }
+/* ⚠ PAGING (Sep 23 2026): offset/limit query params — NEVER the Range header.
+   Chrome turns a request carrying a Range header into `accept-encoding:
+   identity`, so every catalogue page arrived UNCOMPRESSED: 311 KB instead of
+   47 KB per 1,000 rows, measured on this table (the storefront paid the same
+   bill on Sep 20). The first page asks for the exact count and the remaining
+   pages are fetched at once — from Damascus a round trip to Supabase costs
+   about a second whatever its size, so three pages in a row were three seconds
+   before the first card. `expectRows` is only a hint of how many pages to
+   ask for at once; a full last page keeps walking, so a row that lands between
+   the count and the pages is never dropped, and a missing count header falls
+   back to walking the pages one by one — never to a truncated list. */
+async function restPages(path, bearer, expectRows){
+  const PAGE = 1000;
+  const sep = path.includes("?") ? "&" : "?";
+  const H = { apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${bearer}` };
+  const get = async (from, extra)=>{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}${sep}offset=${from}&limit=${PAGE}`,
+      { headers:{ ...H, ...(extra||{}) } });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    return { rows: await r.json(), total: Number((r.headers.get("content-range")||"").split("/")[1]) };
+  };
+  // every page the caller EXPECTS goes out in one burst — the count on the
+  // first page only decides whether more exist. A page past the end comes
+  // back as [] (probed: 200, not 416), so a hint that is too high costs one
+  // cheap parallel request and a hint that is too low costs one more round.
+  const guess = Math.max(1, Math.ceil((expectRows || 0) / PAGE));
+  const burst = await Promise.all(
+    Array.from({length: guess}, (_,i)=> get(PAGE*i, i===0 ? { Prefer:"count=exact" } : undefined)));
+  const out = [];
+  let from = 0, lastLen = PAGE;
+  for(const p of burst){ out.push(...p.rows); from += PAGE; lastLen = p.rows.length; }
+  if(lastLen < PAGE) return out;
+  const total = burst[0].total;
+  if(Number.isFinite(total) && total > from){
+    const pages = await Promise.all(
+      Array.from({length: Math.ceil((total-from)/PAGE)}, (_,i)=> get(from + PAGE*i)));
+    for(const p of pages){ out.push(...p.rows); from += PAGE; lastLen = p.rows.length; }
+    if(lastLen < PAGE) return out;
+  }
+  // no usable count (a proxy stripped the header) — walk on, never truncate
+  for(;;from+=PAGE){ const p = await get(from); out.push(...p.rows); if(p.rows.length < PAGE) break; }
+  return out;
+}
 
 async function fetchAll(){
   const tk = await getToken();
-  const attempt = async (cols, bearer)=>{
-    const out = [];
-    const PAGE = 1000;
-    for(let from=0;;from+=PAGE){
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/dashboard_items?select=${cols}`,{
-        headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${bearer}`,
-                  Range:`${from}-${from+PAGE-1}` }
-      });
-      if(!r.ok) throw new Error(`HTTP ${r.status}`);
-      const page = await r.json();
-      out.push(...page);
-      if(page.length < PAGE) break;
-    }
-    return out;
-  };
+  // ~2,850 rows since July — three pages, asked for together
+  const attempt = (cols, bearer)=> restPages(`dashboard_items?select=${cols}`, bearer, 3000);
   if(tk){
     /* logged-in extras degrade one at a time (pending SQL pastes must never
        blank the dashboard): +cost+stock_by_store -> +cost -> anon columns */
@@ -408,17 +445,7 @@ async function fetchLocs(){
   const tk = await getToken();
   if(!tk) return;
   try {
-    const out = [];
-    for(let from=0;;from+=1000){
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/item_locations?select=code,store,loc`,{
-        headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${tk}`,
-                  Range:`${from}-${from+999}` }
-      });
-      if(!r.ok) return;
-      const page = await r.json();
-      out.push(...page);
-      if(page.length < 1000) break;
-    }
+    const out = await restPages("item_locations?select=code,store,loc", tk);
     itemLocs = {};
     for(const r of out) (itemLocs[r.code] = itemLocs[r.code] || []).push(r);
   } catch(e){ /* internal extra — never block the public dashboard */ }
@@ -812,9 +839,16 @@ document.getElementById("sortpill").onclick = ()=>{
 (async function init(){
   applyLang();
   try{
-    await fetchLocs();               // shelf labels (team-only, quiet if absent)
-    await fetchBranchList();         // branch registry (multi-branch cards, quiet if absent)
-    items = buildItemIndex(await fetchAll());
+    // the three loaders are independent — run them side by side. They used
+    // to run one after another, and from Damascus every request to Supabase
+    // is ~1 s of round trip whatever its size: a logged-in load waited for
+    // five requests in a row before the first card (measured 23 Sep 2026).
+    const [, , rows] = await Promise.all([
+      fetchLocs().catch(()=>{}),        // shelf labels (team-only, quiet if absent)
+      fetchBranchList().catch(()=>{}),  // branch registry (multi-branch cards, quiet if absent)
+      fetchAll(),
+    ]);
+    items = buildItemIndex(rows);
     // UNTRACKED sorts for dead-stock visibility; all other statuses keep lowest/negative-first
     items.sort(severityCmp);
     const latest = items.reduce((m,i)=> i.synced_at>m ? i.synced_at : m, "");

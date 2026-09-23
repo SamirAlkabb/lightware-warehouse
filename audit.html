@@ -410,10 +410,15 @@ const bdi = (s) => `<bdi>${esc(s)}</bdi>`;
 
 /* ───────────────────────── auth (shared with index.html) ───────────────────────── */
 function savedAuth(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); }catch{ return null; } }
+let refreshing = null;   // one in-flight refresh shared by concurrent callers (tokens rotate)
 async function getToken(){
-  let a = savedAuth();
+  const a = savedAuth();
   if(!a) return null;
   if(a.expires_at*1000 > Date.now()+60000) return a.access_token;
+  if(!refreshing) refreshing = refreshAuth(a).finally(()=>{ refreshing = null; });
+  return refreshing;
+}
+async function refreshAuth(a){
   const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
     method:'POST', headers:{apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},
     body: JSON.stringify({refresh_token:a.refresh_token})
@@ -445,18 +450,36 @@ async function rest(path, opts){
   const txt = await r.text();
   return txt ? JSON.parse(txt) : null;
 }
-async function restAll(path){
-  const out = [];
-  for(let from=0;;from+=1000){
-    const tk = await getToken();
-    if(!tk) throw new Error('no-session');
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers:{
-      apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${tk}`, Range:`${from}-${from+999}` } });
+/* same pager as index.html (restPages): offset/limit — never a Range header,
+   which makes Chrome refuse compression — a counted first page, the rest in
+   parallel. The error keeps the server's own text so the pre-paste screen can
+   still name the missing table. */
+async function restAll(path, expectRows){
+  const tk = await getToken();
+  if(!tk) throw new Error('no-session');
+  const PAGE = 1000;
+  const sep = path.includes('?') ? '&' : '?';
+  const get = async (from, extra)=>{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}${sep}offset=${from}&limit=${PAGE}`, { headers:{
+      apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${tk}`, ...(extra||{}) } });
     if(!r.ok){ const b = await r.text(); const e = new Error(b || ('HTTP '+r.status)); e.status = r.status; throw e; }
-    const page = await r.json();
-    out.push(...page);
-    if(page.length < 1000) break;
+    return { rows: await r.json(), total: Number((r.headers.get('content-range')||'').split('/')[1]) };
+  };
+  const guess = Math.max(1, Math.ceil((expectRows || 0) / PAGE));
+  const burst = await Promise.all(
+    Array.from({length: guess}, (_,i)=> get(PAGE*i, i===0 ? { Prefer:'count=exact' } : undefined)));
+  const out = [];
+  let from = 0, lastLen = PAGE;
+  for(const p of burst){ out.push(...p.rows); from += PAGE; lastLen = p.rows.length; }
+  if(lastLen < PAGE) return out;
+  const total = burst[0].total;
+  if(Number.isFinite(total) && total > from){
+    const pages = await Promise.all(
+      Array.from({length: Math.ceil((total-from)/PAGE)}, (_,i)=> get(from + PAGE*i)));
+    for(const p of pages){ out.push(...p.rows); from += PAGE; lastLen = p.rows.length; }
+    if(lastLen < PAGE) return out;
   }
+  for(;;from+=PAGE){ const p = await get(from); out.push(...p.rows); if(p.rows.length < PAGE) break; }
   return out;
 }
 
@@ -489,7 +512,7 @@ function back(){
 async function loadAll(){
   const cols = 'code,name,latin_name,unit,qty,brand,image_url,cost,stock_by_store,synced_at';
   const [items, locRows, branches, roles] = await Promise.all([
-    restAll(`dashboard_items?select=${cols}`),
+    restAll(`dashboard_items?select=${cols}`, 3000),
     restAll('item_locations?select=code,store,loc'),
     restAll('branches?select=id,name,kind,active,stores&order=id'),
     restAll('staff_roles?select=uid,role,branch_id'),
