@@ -28,8 +28,33 @@ const RO = (() => {
   const LEAD = 5, BUFFER = 2, ROP = LEAD + BUFFER, TARGET = 12
   const WINDOW_DAYS = 365          // one full seasonal cycle — so NO ×1.5 summer factor
 
+  /* ==== DIRECT-HANDOVER LINES (mirror of order-portal/src/localsup.js) ====
+     Amr, 24 Sep 2026: these are bought from a local Syrian supplier ON ORDER and
+     handed to the customer the same day, so they must never be planned as stock.
+     ⚠ Energetic used to be planned right here as a CHINA import on a 5-month
+     lead and a 12-month target — it was $7,420 of the last order sheet. Samir's
+     correction: it is a Chinese brand whose Syrian agency is not ours, so we buy
+     it here, on order. Measured: «شركة دياب» billed us 100 times in 2026, 1–2
+     lines each, $27–$390 — never a container.
+     ⚠ Keep in step with localsup.js; localsup-parity.mjs asserts the portal and
+     the dashboard agree, and `dhCodes` below is asserted against it too. */
+  const DIRECT_PREFIXES = ['36']
+  const DIRECT_CODES = new Set([
+    '08030', '08031', '08032', '0304001', '0304003', '0304004', '0304005',
+    '0303024', '0303025',                                    // الشامي
+    '14095', '14096', '14097', '28070',                      // خالد شموط
+    '0101045', '0101053', '0201059',                         // عبد الغني عثمان
+    '0305001',                                               // هاني شعبان
+  ])
+  const DIRECT_RE = [/energetic/i, /energitic/i, /بضاعة الشامي/, /[لوب]?محمد الشامي/, /الشامي/,
+    /خالد شموط/, /عبد الغني عثمان/, /عبد الغني/, /هاني شعبان/, /ايكون/, /\bicon\b/i]
+  const isDirectRow = (i) => DIRECT_CODES.has(i.code)
+    || DIRECT_PREFIXES.some((p) => String(i.code || '').startsWith(p))
+    || DIRECT_RE.some((re) => re.test(String(i.name || '')) || re.test(String(i.latin_name || '')))
+
   const ORIGIN = {
-    'Megaman': 'الصين', 'Orvibo': 'الصين', 'Dahua': 'الصين', 'Energetic': 'الصين',
+    'Megaman': 'الصين', 'Orvibo': 'الصين', 'Dahua': 'الصين',
+    'Energetic': 'وكيل محلي — بالطلب',   // never ordered here; see DIRECT_* above
     'Lightware': 'الصين', 'اكسسوارات': 'الصين', 'اكسسوارات مغناطيس': 'الصين',
     'ديمر': 'الصين', 'كبل': 'الصين', 'اقفال ذكية': 'الصين', 'برايز مكتبية': 'الصين',
     'Bticino': 'إيطاليا', 'Legrand': 'فرنسا', 'Simon Urmet': 'إيطاليا',
@@ -97,12 +122,27 @@ const RO = (() => {
   // Returns { rows, projects, brands, dropped } — rows are the standing reorder
   // list (identical to reorder_report.mjs), projects the «مواد المشاريع» list.
   function computePlan(items, per) {
-    const rows = [], projects = []
+    const rows = [], projects = [], direct = []
     let dropped = 0
     const onList = new Set()
     for (const i of items) {
       const code = i.code
       if (DROPPED.has(code)) { dropped++; continue }
+      // ⚠ NOT DROPPED SILENTLY. A direct-handover line leaves the order — it is
+      // bought when a customer asks — but whatever is still on the shelf is
+      // reported in its own section, because $234 of Energetic and 74 pieces of
+      // الشامي's stock ARE sitting there today and vanishing them from the one
+      // sheet the owner reads would hide the very thing the policy is about.
+      if (isDirectRow(i)) {
+        const q = Number(i.qty) || 0
+        if (q > 0) {
+          const c = i.cost == null || i.cost === '' ? null : Number(i.cost)
+          direct.push({ code, name: i.name || '', ref: i.latin_name || '',
+            brand: i.brand || '—', unit: i.unit || '', qty: q, cost: c,
+            value: c == null ? null : r2(q * c), last: per[code] ? per[code].last : null })
+        }
+        continue
+      }
       const v = per[code]
       if (!v) continue
       const vel = velocityOf({ sold: v.sold, ret: v.ret }, WINDOW_DAYS)
@@ -156,7 +196,8 @@ const RO = (() => {
     const U = { 'نفد': 0, 'حرج': 1, 'قريب': 2 }
     rows.sort((a, b) => a.brand.localeCompare(b.brand, 'ar') || U[a.urgency] - U[b.urgency] || (b.flow || 0) - (a.flow || 0))
     projects.sort((a, b) => (b.biggest * (b.cost || 0)) - (a.biggest * (a.cost || 0)))
-    return { rows, projects, brands: brandAgg(rows), dropped }
+    direct.sort((a, b) => (b.value || 0) - (a.value || 0) || b.qty - a.qty)
+    return { rows, projects, direct, brands: brandAgg(rows), dropped }
   }
 
   function brandAgg(rows) {
@@ -564,6 +605,7 @@ ${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.open
   }
 
   return { DROPPED, SEASONAL, LEAD, BUFFER, ROP, TARGET, WINDOW_DAYS, ORIGIN,
+    isDirectRow, DIRECT_CODES, DIRECT_PREFIXES,
     velocityOf, foldBills, computePlan, brandAgg, roundOrder, noteFor, billWord,
     crc32, zip, xlsx, brandSheet, summarySheet, groupByBrand, brandWorkbook, fullWorkbook, packPdf }
 })()

@@ -249,6 +249,14 @@
       </div>
     </details>
 
+    <details class="sect" id="dhsect" hidden>
+      <summary><span id="dh-t"></span><span class="n" id="dh-n"></span></summary>
+      <div class="body">
+        <div class="note" id="dh-note"></div>
+        <div class="tablewrap"><table class="ro" id="dhtable"><thead><tr id="dhhead"></tr></thead><tbody id="dhbody"></tbody></table></div>
+      </div>
+    </details>
+
     <details class="sect" id="howsect">
       <summary><span id="how-t"></span></summary>
       <div class="body"><ul id="how-list"></ul></div>
@@ -346,6 +354,10 @@ const DICT = {
     fl:{new:"جديدة", seas:"موسمي", rare:(n)=>RO.billWord(n), proj:(n)=>`+مشاريع ${n}`, nocost:"بلا كلفة", draft:"🧾 بالطلبية", onlist:"عاللستة فوق"},
     proj_t:"مواد المشاريع — قرارها إلك", proj_n:(n,m)=>`${n} مادة · ${m} منها مو عاللستة`,
     proj_note:"هدول مواد انباعت بكميات كبيرة بمشروع أو مشروعين، مو مبيع يومي — لهيك ما دخلت بوسطي الشهر. الموجود عنا اليوم ما بيكفّي لو رجع مشروع متلو. إذا بتتوقع تكرار، حدّدها وضيفها — الكمية المقترحة = تغطية أكبر مشروع من المخزون.",
+    dh_t:"مواد تسليم مباشر",
+    dh_n:(c,u,v,nc)=>` ${c} صنف · ${u} حبة${v>0?` · بكلفة $${v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`:""}${nc?` · ${nc} بلا كلفة`:""}`,
+    dh_note:"هي المواد منشتريها من مورّد محلي بالطلب ومنسلّمها للزبون دغري — ما بتنطلب للمستودع، فما فيها خانة اختيار. اللي تحت هو يلي لسا موجود عالرف: صرّفو أو رجّعو للمورّد. اسم المورّد أو الماركة ما بيطلع ولا مرة على كشف حساب الزبون.",
+    dh_value:"قيمة المخزون",
     how_t:"ℹ️ كيف انحسبت الكميات",
     how:[
       "بيمشي بالشهر = وسطي المبيع الفعلي بآخر ١٢ شهر — من فواتير الأمين، مو تقدير.",
@@ -388,6 +400,10 @@ const DICT = {
     fl:{new:"new", seas:"seasonal", rare:(n)=>`${n} bill${n===1?"":"s"}`, proj:(n)=>`+projects ${n}`, nocost:"no cost", draft:"🧾 in order", onlist:"on the list above"},
     proj_t:"Project items — your call", proj_n:(n,m)=>`${n} items · ${m} not on the list`,
     proj_note:"These sold in large quantities on one or two projects, not daily — so they are excluded from the monthly average. Today's stock could not serve a repeat of the same project. If you expect one, select and add — the suggested quantity covers the biggest project from stock.",
+    dh_t:"Direct-handover goods",
+    dh_n:(c,u,v,nc)=>` ${c} item${c===1?"":"s"} · ${u} unit${u===1?"":"s"}${v>0?` · $${v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})} at cost`:""}${nc?` · ${nc} unvalued`:""}`,
+    dh_note:"These are bought from a local supplier on order and handed straight to the customer — they are never ordered into the warehouse, which is why there are no checkboxes here. What follows is what is still on the shelf: sell it down or return it. The supplier or brand name never appears on a customer statement.",
+    dh_value:"Stock value",
     how_t:"ℹ️ How the quantities were computed",
     how:[
       "Per month = the real average of the last 12 months of sales, from Al-Ameen bills — not an estimate.",
@@ -682,6 +698,33 @@ function renderProjects(){
   $("projbody").querySelectorAll("input[type=checkbox]").forEach(cb=>cb.onchange=()=>{ cb.checked?selected.add(cb.dataset.code):selected.delete(cb.dataset.code); saveSel(); cb.closest("tr").classList.toggle("checked", cb.checked); renderBulk(); });
   $("projall").onchange = ()=>{ const vis = ps.filter(p=>!p.onOrderList).map(p=>p.code); if($("projall").checked) vis.forEach(c=>selected.add(c)); else vis.forEach(c=>selected.delete(c)); saveSel(); renderTable(); };
 }
+/* «مواد تسليم مباشر» — bought on order from a local supplier and handed to the
+   customer, so they are NOT part of any order. Deliberately checkbox-free: the
+   whole point is that nothing here gets ordered. It lists what is nonetheless
+   sitting on the shelf, so the policy's exceptions stay visible instead of
+   quietly disappearing from the sheet the owner reads. */
+function renderDirect(){
+  const ds = (plan.direct || []);
+  const sect = $("dhsect");
+  sect.hidden = ds.length === 0;
+  if(!ds.length) return;
+  const th = t("th");
+  const units = ds.reduce((a,d)=>a+(Number(d.qty)||0),0);
+  const val = ds.reduce((a,d)=>a+(d.value||0),0);
+  const nocost = ds.filter(d=>d.cost==null).length;
+  $("dh-t").textContent = t("dh_t");
+  $("dh-n").textContent = t("dh_n")(ds.length, units, val, nocost);
+  $("dh-note").textContent = t("dh_note");
+  $("dhhead").innerHTML = `<th>${th.code}</th><th class="name">${th.name}</th><th>${th.qty}</th><th class="col-lo">${th.cost}</th><th>${t("dh_value")}</th>`;
+  $("dhbody").innerHTML = ds.map(d=>`
+    <tr data-code="${escHtml(d.code)}">
+      <td class="num">${escHtml(d.code)}</td>
+      <td class="name"><div class="nm">${escHtml(d.name||d.ref||d.code)}</div><div class="meta">${escHtml(d.brand)}${d.ref?" · "+escHtml(d.ref):""}</div></td>
+      <td class="num">${fmtQty(d.qty)}</td>
+      <td class="num cost col-lo">${d.cost==null?"—":fmtN(d.cost,2)}</td>
+      <td class="num">${d.value==null?"—":"$"+fmtN(d.value,2)}</td>
+    </tr>`).join("");
+}
 function renderBulk(){
   const all = visibleRows().map(r=>r.code);
   const nSel = all.filter(c=>selected.has(c)).length;
@@ -946,7 +989,7 @@ function renderHow(){
   const how = supMeta ? [...d.how, d.sup_note(supMeta.quote_no, supMeta.quote_date)] : d.how;
   $("how-list").innerHTML = how.map(s=>`<li>${escHtml(s)}</li>`).join("");
 }
-function renderAll(){ renderTiles(); renderControls(); renderTable(); renderDrawer(); renderHow(); }
+function renderAll(){ renderTiles(); renderControls(); renderTable(); renderDirect(); renderDrawer(); renderHow(); }
 $("langbtn").onclick = ()=>{ lang = lang==="ar"?"en":"ar"; try{ localStorage.setItem(LANG_KEY, lang); }catch{} applyLang(); if(plan) renderAll(); };
 $("search").addEventListener("input", e=>{ query=e.target.value; renderTable(); });
 $("brandsel").onchange = e=>{ brand=e.target.value; renderTable(); };

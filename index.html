@@ -258,6 +258,11 @@ const DICT = {
     load_err:"ما قدرنا نوصل للبيانات.<br>تأكد من الإنترنت ومن إعدادات الرابط والمفتاح.",
     st:{STOCKOUT:"نفد", RED:"أحمر", YELLOW:"أصفر", GREEN:"أخضر", UNTRACKED:"غير متتبع"},
     all:"الكل",
+    dh_warn:(c,u,v)=>`⚠ في ستوك من مواد التسليم المباشر — ${c} صنف · ${u} حبة${v}. هالمواد منشتريها بالطلب ومنسلّمها للزبون دغري، المفروض ما تكون بالمستودع.`,
+    dh_val:(v)=>` · بكلفة $${v}`,
+    dh_nocost:(n)=>` · ${n} بلا كلفة`,
+    dh_show:"دوس لتشوفهن",
+    dh_only:(c)=>`عم تشوف مواد التسليم المباشر بس (${c}) — دوس لترجع للكل`,
     locale:"ar-SY",
   },
   en: {
@@ -285,9 +290,69 @@ const DICT = {
     load_err:"Couldn't reach the data.<br>Check the internet and the URL/key settings.",
     st:{STOCKOUT:"Out", RED:"Red", YELLOW:"Yellow", GREEN:"Green", UNTRACKED:"Untracked"},
     all:"All",
+    dh_warn:(c,u,v)=>`⚠ Direct-handover goods are sitting in stock — ${c} item${c===1?"":"s"} · ${u} unit${u===1?"":"s"}${v}. These are bought on order and handed straight to the customer; they should not be in the warehouse.`,
+    dh_val:(v)=>` · $${v} at cost`,
+    dh_nocost:(n)=>` · ${n} unvalued`,
+    dh_show:"Tap to see them",
+    dh_only:(c)=>`Showing direct-handover items only (${c}) — tap to show all`,
     locale:"en-GB",
   },
 };
+
+/* ==== LOCAL SUPPLIERS — mirror of order-portal/src/localsup.js ====
+   ⚠ EDIT BOTH. This page has no build step and shares no module with the
+   portal, so the registry is duplicated exactly as itemsearch.js is (the
+   established pattern here since Jul 14 2026). `localsup-parity.mjs` extracts
+   this block and asserts the two agree on every row of the live catalogue —
+   run it after touching either side.
+
+   WHAT IT IS FOR HERE: Amr's rule of 24 Sep 2026 — goods bought from a local
+   Syrian supplier are bought ON ORDER and handed to the customer the same day,
+   so STOCK in one of these lines is the anomaly, and the dashboard says so
+   instead of listing it as ordinary inventory. */
+const LOCAL_SUPPLIERS = [
+  { id:"energetic", label:"Energetic", prefixes:["36"], codes:[], names:[], latin:["energetic","energitic"] },
+  { id:"shami", label:"الشامي", prefixes:[],
+    codes:["08030","08031","08032","0304001","0304003","0304004","0304005","0303024","0303025"],
+    names:["بضاعة الشامي","محمد الشامي","الشامي"], latin:["shami"] },
+  { id:"icon", label:"ايكون", prefixes:[], codes:[], names:["ايكون"], latin:["icon"] },
+  { id:"shmout", label:"خالد شموط", prefixes:[], codes:["14095","14096","14097","28070"],
+    names:["خالد شموط"], latin:[] },
+  { id:"ghani", label:"عبد الغني عثمان", prefixes:[], codes:["0101045","0101053","0201059"],
+    names:["عبد الغني عثمان","عبد الغني"], latin:[] },
+  { id:"shaaban", label:"هاني شعبان", prefixes:[], codes:["0305001"], names:["هاني شعبان"], latin:[] },
+];
+/* ⚠ Arabic names: an attached ل/و/ب is part of the match. Latin: word-bounded,
+   because latin_name «T2014silicone» contains «icon» and a substring rule would
+   flag a silicone strip as a supplier leak. */
+const DH_MATCH = LOCAL_SUPPLIERS.map(x=>({
+  id:x.id,
+  prefixes:x.prefixes||[],
+  codes:new Set(x.codes||[]),
+  res:[...(x.names||[]).map(n=>new RegExp("[\u0644\u0648\u0628]?"+n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"g")),
+       ...(x.latin||[]).map(n=>new RegExp("\\b"+n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","gi"))],
+}));
+function dhByCode(code){
+  const c = String(code||""); if(!c) return null;
+  for(const m of DH_MATCH){ if(m.codes.has(c)) return m.id;
+    if(m.prefixes.some(pf=>c.startsWith(pf))) return m.id; }
+  return null;
+}
+function dhByText(text){
+  const v = String(text||""); if(!v) return null;
+  for(const m of DH_MATCH) if(m.res.some(re=>{re.lastIndex=0; return re.test(v)})) return m.id;
+  return null;
+}
+const isDirectItem = i => !!(dhByCode(i&&i.code) || dhByText(i&&i.name) || dhByText(i&&i.latin_name));
+function unusualStock(rows){
+  const hit = (rows||[]).filter(i=>isDirectItem(i) && Number(i.qty)>0);
+  let units=0, value=0, nocost=0;
+  for(const i of hit){ units += Number(i.qty)||0;
+    if(i.cost>0) value += Number(i.qty)*Number(i.cost); else nocost++; }
+  return { rows:hit, codes:hit.length, units, value, nocost };
+}
+let onlyDirect = false;
+/* ==== END LOCAL SUPPLIERS ==== */
 const LANG_KEY = "lw_dash_lang";
 let lang = (()=>{ try { return localStorage.getItem(LANG_KEY)==="en" ? "en" : "ar"; } catch { return "ar"; } })();
 const t = (k)=> DICT[lang][k];
@@ -689,10 +754,47 @@ function rankSearch(pool,q,tiebreak){
 }
 /* ================== end search engine ================== */
 
+/* the unusual-stock alert. Rendered from render() so it follows the language
+   flip and the toggle with no second code path; a banner that only ever
+   appeared at boot would go stale the moment someone switched to English. */
+function renderDirectWarn(){
+  let el = document.getElementById("directwarn");
+  const u = unusualStock(items);
+  if(!u.codes){ if(el) el.remove(); onlyDirect = false; return u; }
+  if(!el){
+    el = document.createElement("div");
+    el.id = "directwarn";
+    el.style.cssText = "background:#5a3c0a;color:#ffe8c2;padding:10px 14px;border-radius:10px;"+
+      "margin:10px 12px 0;font-size:14px;line-height:1.5;cursor:pointer;font-weight:600";
+    el.onclick = ()=>{ onlyDirect = !onlyDirect; render(); };
+    const list = document.getElementById("list");
+    list.parentNode.insertBefore(el, list);
+  }
+  /* ⚠ the value only exists for a SIGNED-IN viewer — `cost` is an authenticated
+     column. Signed out, every row is unvalued, and printing «20 unvalued» would
+     be noise dressed as a finding. The count and the units are the alert; the
+     money is the detail, and «N unvalued» is only worth saying when the rest
+     DID have a cost. */
+  const val = u.value > 0
+    ? t("dh_val")(u.value.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}))
+      + (u.nocost ? t("dh_nocost")(u.nocost) : "")
+    : "";
+  el.textContent = onlyDirect
+    ? t("dh_only")(u.codes)
+    : t("dh_warn")(u.codes, fmtQty(u.units), val) + "  " + t("dh_show");
+  return u;
+}
+
 function render(){
   const list = document.getElementById("list");
   const q = query.trim();
   let rows = items;
+  renderDirectWarn();
+  // ⚠ the SAME predicate the banner counts with — `isDirectItem` alone also
+  // matches the 46 declared codes sitting at zero, which are exactly the ones
+  // behaving correctly. A banner saying 20 that opens a list of 66 is the
+  // two-numbers-for-one-list defect this app has paid for before.
+  if(onlyDirect) rows = rows.filter(i=>isDirectItem(i) && Number(i.qty)>0);
   if(activeFilter!=="ALL") rows = rows.filter(i=>i.status===activeFilter);
   if(activeBrand!=="ALL")  rows = rows.filter(i=>(i.brand||"")===activeBrand);
   if(q) rows = rankSearch(rows, q, severityCmp);   // relevance bands, severity inside
