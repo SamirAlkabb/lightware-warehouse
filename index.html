@@ -110,6 +110,10 @@
     max-width:100%; overflow:hidden; text-overflow:ellipsis}
   .storetag b{color:#1C1813}
   .storetag .shelf{color:#E8870B; font-weight:700}
+  /* «🪧 عند التجار» — ours, but on a merchant's shelf (consignment) */
+  .storetag.mstag{background:var(--glow); border-color:var(--amber); color:#1C1813; font-weight:600}
+  .storetag.mstag b{color:#B36405}
+  .chip.ms{border-color:#8A5A1C}
   .authbtn{background:none; border:1px solid #3a352e; border-radius:8px;
     padding:4px 9px; font-size:14px; cursor:pointer; color:inherit}
   .authcard{background:#1D1915; border:1px solid #3a352e; border-radius:14px;
@@ -263,6 +267,10 @@ const DICT = {
     dh_nocost:(n)=>` · ${n} بلا كلفة`,
     dh_show:"دوس لتشوفهن",
     dh_only:(c)=>`عم تشوف مواد التسليم المباشر بس (${c}) — دوس لترجع للكل`,
+    ms_chip:"🪧 مساطر",
+    ms_tag:"🪧 عند التجار",
+    ms_pend:(n)=>`${n} قيد الإدخال`,
+    ms_only:(c)=>`عم تشوف يلي طالع مساطر بس (${c}) — الأرقام من فواتير الأمين`,
     locale:"ar-SY",
   },
   en: {
@@ -295,6 +303,10 @@ const DICT = {
     dh_nocost:(n)=>` · ${n} unvalued`,
     dh_show:"Tap to see them",
     dh_only:(c)=>`Showing direct-handover items only (${c}) — tap to show all`,
+    ms_chip:"🪧 Consignment",
+    ms_tag:"🪧 At merchants",
+    ms_pend:(n)=>`${n} not yet in Al-Ameen`,
+    ms_only:(c)=>`Showing items out on consignment only (${c}) — figures from Al-Ameen bills`,
     locale:"en-GB",
   },
 };
@@ -352,7 +364,120 @@ function unusualStock(rows){
   return { rows:hit, codes:hit.length, units, value, nocost };
 }
 let onlyDirect = false;
+let onlyMasatir = false;      // the «🪧 مساطر» chip: show only what is out on consignment
+let msItems = new Map();      // code -> {qty, pend, since, holders} — team login only
 /* ==== END LOCAL SUPPLIERS ==== */
+
+/* ==== MASATIR — mirror of order-portal/src/masatir.js (foldHoldings → items) ====
+   «وين المساطر» (Amr, 26 Sep 2026): a consignment is a plain مبيعات bill on the
+   merchant's «… مساطر» account, so the goods leave Al-Ameen's stock the moment
+   it is typed and this page could not see them. Σ sent − Σ returned per
+   (account, code), every fiscal year, FIFO for the oldest piece still out;
+   portal slips Qusay has not typed stay apart as `pend`. Only the ITEM view is
+   mirrored — that is all a card shows. `masatir-parity.mjs` extracts this block
+   and asserts it agrees with the portal module on the live books. */
+const MS_isName = n => /مساطر/.test(String(n||""));
+const MS_key = s => String(s||"").trim().replace(/\s+/g," ").toLowerCase();
+const MS_isSale = k => /^مبيع/.test(String(k||"")) && !/مرتجع/.test(String(k||""));
+const MS_isRet = k => String(k||"").startsWith("مرتجع مبيع");
+const MS_r3 = x => Math.round(x*1000)/1000;
+const MS_day = d => String(d||"").slice(0,10);
+const MS_pending = w => !!w && (w.status==="pending" || (w.status==="flagged" && w.flag_reason!=="NEEDS_PRICE"));
+function msShort(name){
+  let s = String(name||"").replace(/مساطر/g," ");
+  s = s.replace(/([/\\|–—-])(\s*[/\\|–—-])+/g,"$1");
+  s = s.replace(/[\s/\\|–—-]+$/g,"").replace(/^[\s/\\|–—-]+/g,"");
+  return s.replace(/\s{2,}/g," ").trim() || String(name||"");
+}
+function msFold(bills, accounts, slips){
+  const EPS = 1e-6;
+  const acc = new Map((accounts||[]).map(a=>[a.guid,a]));
+  const byName = new Map((accounts||[]).map(a=>[MS_key(a.name),a]));
+  const lots = new Map(), pend = new Map(), pendDate = new Map();
+  const L = k => { if(!lots.has(k)) lots.set(k,[]); return lots.get(k); };
+  const rows = (bills||[]).filter(b=>acc.has(b.customer_guid) && (MS_isSale(b.kind)||MS_isRet(b.kind)))
+    .sort((a,b)=>(MS_day(a.date)<MS_day(b.date)?-1:MS_day(a.date)>MS_day(b.date)?1:0)
+      || (MS_isSale(b.kind)-MS_isSale(a.kind)) || ((Number(a.no)||0)-(Number(b.no)||0)));
+  for(const b of rows){
+    const d = MS_day(b.date);
+    for(const it of (b.items||[])){
+      if(!it || !it.code) continue;
+      const q = Number(it.qty||0); if(!(q>EPS)) continue;
+      const ls = L(b.customer_guid+"|"+it.code);
+      if(MS_isSale(b.kind)){ ls.push({date:d, qty:q}); continue; }
+      let need = q;                              /* FIFO: the oldest piece comes back first */
+      while(need>EPS && ls.length){
+        const take = Math.min(ls[0].qty, need);
+        ls[0].qty -= take; need -= take;
+        if(ls[0].qty<=EPS) ls.shift();
+      }
+    }
+  }
+  for(const w of (slips||[])){
+    if(!w || w.status==="voided") continue;
+    const a = byName.get(MS_key(w.customer));
+    if(!a || !MS_pending(w) || (w.kind!=="consign" && w.kind!=="return")) continue;
+    const sg = w.kind==="consign" ? 1 : -1;
+    for(const it of (w.items||[])){
+      const q = Number(it.qty||0);
+      if(!it.code || String(it.code).startsWith("EXT-") || !(q>EPS)) continue;
+      const k = a.guid+"|"+it.code;
+      pend.set(k, (pend.get(k)||0) + sg*q);
+      const d = MS_day(w.created_at);
+      if(!pendDate.has(k) || d<pendDate.get(k)) pendDate.set(k,d);
+    }
+  }
+  const items = new Map();
+  for(const k of new Set([...lots.keys(), ...pend.keys()])){
+    const [g, code] = k.split("|");
+    const a = acc.get(g); if(!a) continue;
+    const ls = lots.get(k)||[];
+    const qty = MS_r3(ls.reduce((s,l)=>s+l.qty,0));
+    const p = MS_r3(pend.get(k)||0);
+    if(qty<=EPS && Math.abs(p)<=EPS) continue;
+    const since = ls.length ? ls[0].date : (p>0 ? pendDate.get(k) : null);
+    if(!items.has(code)) items.set(code, {code, qty:0, pend:0, since:null, holders:[]});
+    const it = items.get(code);
+    it.qty = MS_r3(it.qty+qty); it.pend = MS_r3(it.pend+p);
+    if(since && (!it.since || since<it.since)) it.since = since;
+    it.holders.push({guid:g, name:a.name, qty, pend:p, since});
+  }
+  for(const it of items.values()) it.holders.sort((x,y)=>(y.qty+y.pend)-(x.qty+x.pend)
+    || String(x.since||"9").localeCompare(String(y.since||"9")) || String(x.guid).localeCompare(String(y.guid)));
+  return items;
+}
+/* ==== END MASATIR ==== */
+
+/* team-only, quiet on any failure: customers and bills are authenticated
+   tables, and a consignment line is garnish on a stock card, never a blocker */
+async function fetchMasatir(){
+  const tk = await getToken();
+  if(!tk) return;
+  try{
+    const accounts = await restPages(`customers?select=guid,name&name=like.${encodeURIComponent("*مساطر*")}`, tk);
+    const mine = accounts.filter(a=>MS_isName(a.name));
+    if(!mine.length){ msItems = new Map(); return; }
+    const inl = `in.(${mine.map(a=>a.guid).join(",")})`;
+    const cols = "no,date,kind,customer_guid,items";
+    const [b26, b25, slips] = await Promise.all([
+      restPages(`alameen_bills?select=${cols}&customer_guid=${inl}`, tk),
+      restPages(`alameen_bills_2025?select=${cols}&customer_guid=${inl}`, tk).catch(()=>[]),
+      restPages("withdrawals?select=no,kind,status,flag_reason,customer,created_at,items&kind=in.(consign,return)&status=neq.voided", tk).catch(()=>[]),
+    ]);
+    msItems = msFold([...b26, ...b25], mine, slips);
+  }catch(e){ /* the stock cards still tell their own story */ }
+}
+function masatirLineHtml(i){
+  const m = msItems.get(i.code);
+  if(!m) return "";
+  const n = fmtStoreQty(m.qty + m.pend);
+  if(!(n > 0)) return "";
+  const hs = m.holders.slice(0,3).map(h=>
+    `<span class="storetag">${escHtml(msShort(h.name))} <b>${fmtStoreQty(h.qty+h.pend)}</b></span>`).join("");
+  const more = m.holders.length>3 ? `<span class="storetag">+${m.holders.length-3}</span>` : "";
+  const pend = m.pend ? `<span class="storetag">${escHtml(t("ms_pend")(fmtStoreQty(m.pend)))}</span>` : "";
+  return `<div class="stores mstags"><span class="storetag mstag">${t("ms_tag")} <b>${n}</b></span>${hs}${more}${pend}</div>`;
+}
 const LANG_KEY = "lw_dash_lang";
 let lang = (()=>{ try { return localStorage.getItem(LANG_KEY)==="en" ? "en" : "ar"; } catch { return "ar"; } })();
 const t = (k)=> DICT[lang][k];
@@ -371,7 +496,7 @@ let items = [], activeFilter = "ALL", query = "", activeBrand = "ALL", sortMode 
 const STATE_KEY = "lw_dash_state_v1";
 function saveState(){
   try { localStorage.setItem(STATE_KEY, JSON.stringify({
-    q: query, brand: activeBrand, status: activeFilter, sort: sortMode,
+    q: query, brand: activeBrand, status: activeFilter, sort: sortMode, ms: onlyMasatir,
     scroll: window.scrollY, ts: Date.now(),
   })); } catch {}
 }
@@ -795,11 +920,15 @@ function render(){
   // behaving correctly. A banner saying 20 that opens a list of 66 is the
   // two-numbers-for-one-list defect this app has paid for before.
   if(onlyDirect) rows = rows.filter(i=>isDirectItem(i) && Number(i.qty)>0);
+  // the SAME test the chip counts with — two numbers for one list is a bug
+  if(onlyMasatir) rows = rows.filter(i=>msTot(i)>0);
   if(activeFilter!=="ALL") rows = rows.filter(i=>i.status===activeFilter);
   if(activeBrand!=="ALL")  rows = rows.filter(i=>(i.brand||"")===activeBrand);
   if(q) rows = rankSearch(rows, q, severityCmp);   // relevance bands, severity inside
   if(sortMode!=="default")                          // explicit qty sort beats everything
     rows = [...rows].sort((a,b)=> sortMode==="qty_desc" ? b.qty-a.qty : a.qty-b.qty);
+  else if(onlyMasatir && !q)                        // most out on consignment first
+    rows = [...rows].sort((a,b)=> msTot(b)-msTot(a));
   saveState();
   document.getElementById("count").textContent = t("count")(rows.length);
   if(!rows.length){
@@ -813,7 +942,7 @@ function render(){
       <div class="info">
         <div class="name">${i.name || i.latin_name || i.code}</div>
         <div class="meta">${i.code}${i.latin_name ? " · "+i.latin_name : ""}</div>
-        ${branchLineHtml(i)}${storeLineHtml(i)}
+        ${branchLineHtml(i)}${storeLineHtml(i)}${masatirLineHtml(i)}
       </div>
       <div class="side">
         <div class="qty">${fmtQty(i.qty)}</div>
@@ -829,16 +958,24 @@ function render(){
     list.innerHTML += `<div class="state">${t("more_rows")(rows.length-400)}</div>`;
 }
 
+function msTot(i){ const m = msItems.get(i.code); return m ? m.qty + m.pend : 0; }
 function renderChips(){
   const counts = {ALL: items.length};
   for(const f of FILTERS.slice(1)) counts[f] = items.filter(i=>i.status===f).length;
+  const msCount = msItems.size ? items.filter(i=>msTot(i)>0).length : 0;
+  if(!msCount) onlyMasatir = false;
   document.getElementById("chips").innerHTML = FILTERS.map(f=>`
     <span class="chip ${f===activeFilter?"active":""}" data-f="${f}">
       ${filterLabel(f)}<span class="n">${counts[f]}</span>
-    </span>`).join("");
-  document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{
+    </span>`).join("") + (msCount ? `
+    <span class="chip ms ${onlyMasatir?"active":""}" id="mschip" title="${escHtml(t("ms_only")(msCount))}">
+      ${t("ms_chip")}<span class="n">${msCount}</span>
+    </span>` : "");
+  document.querySelectorAll(".chip[data-f]").forEach(c=>c.onclick=()=>{
     activeFilter=c.dataset.f; renderChips(); render();
   });
+  const mc = document.getElementById("mschip");
+  if(mc) mc.onclick = ()=>{ onlyMasatir = !onlyMasatir; renderChips(); render(); };
 }
 
 function populateBrands(){
@@ -949,6 +1086,7 @@ document.getElementById("sortpill").onclick = ()=>{
       fetchLocs().catch(()=>{}),        // shelf labels (team-only, quiet if absent)
       fetchBranchList().catch(()=>{}),  // branch registry (multi-branch cards, quiet if absent)
       fetchAll(),
+      fetchMasatir().catch(()=>{}),     // what is out on consignment (team-only, quiet)
     ]);
     items = buildItemIndex(rows);
     // UNTRACKED sorts for dead-stock visibility; all other statuses keep lowest/negative-first
@@ -983,6 +1121,7 @@ document.getElementById("sortpill").onclick = ()=>{
       query = saved.q || "";
       activeFilter = FILTERS.includes(saved.status) ? saved.status : "ALL";
       sortMode = (saved.sort in SORT_KEYS) ? saved.sort : "default";
+      onlyMasatir = !!saved.ms && msItems.size > 0;
       document.getElementById("search").value = query;
       syncSortPill();
     }
