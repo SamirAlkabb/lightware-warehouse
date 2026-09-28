@@ -31,6 +31,14 @@
   attribution here is the warehouse login itself — every count row carries the
   signed-in user's id and display name.
 
+  ⚠ STACK WAREHOUSES (phase33, 28 Sep 2026): a warehouse with an active
+  warehouse_maps row is floor-stacked and numbered 1..N. It gets its own doors —
+  the morning cycle count (a daily queue the first device computes and every
+  device reads), stack-first mapping, the picker's «الكومة ما فيها كفاية» flag
+  and, for approvers only, the ledger. All of it lives in ONE block further down
+  («STACK WAREHOUSES»); a rack warehouse, the demo login and a server without
+  phase33 see this page exactly as it was. Harness: audit-harness/stack-verify.mjs.
+
   Ships beside index.html on warehouse.lightwaresy.com, behind the same login
   (localStorage lw_dash_auth — one sign-in serves every page). Zero
   dependencies and no build step, like the rest of this app: audit_engine.js
@@ -163,7 +171,12 @@
   .note{
     border-radius:16px; padding:14px 16px; margin:0 0 14px; font-size:16px; font-weight:600;
     background:var(--cream); border:1px solid var(--line);
+    overflow-wrap:anywhere;          /* a long unbroken token (a URL, a code) wraps — never widens the page */
   }
+  .note ul.orph{margin:8px 0 0; padding-inline-start:20px; font-weight:700}
+  .note ul.orph li{margin:4px 0}
+  /* the typed value is a pill of its own: next to a wrapped model number («… MXL 1075») a bare «: 44» read as one figure */
+  .note ul.orph .v{display:inline-block; margin-inline-start:6px; padding:0 9px; border-radius:9px; background:#fff; border:1px solid #E7C48A; color:var(--ink)}
   .note.warn{background:var(--warn-bg); border-color:#E7C48A; color:var(--warn)}
   .note.bad{background:var(--bad-bg); border-color:#F0C8C4; color:var(--bad)}
   .note.good{background:var(--good-bg); border-color:#BFE3CD; color:var(--good)}
@@ -201,6 +214,59 @@
     width:100%; min-height:var(--tap); margin-bottom:12px; padding:0 16px; font:inherit; font-size:18px;
     border-radius:16px; border:2px solid var(--line); background:var(--card); direction:ltr;
   }
+  /* ── STACK WAREHOUSES (phase33, 28 Sep 2026) ──────────────────────────────
+     A floor-stacked warehouse numbers its stacks 1..N; the stack NUMBER is how
+     a person finds the goods, so it is the biggest thing on every screen. */
+  .big.hero .tx{text-align:center}
+  .big.hero.done{background:var(--good-bg); border-color:#BFE3CD; color:var(--good); box-shadow:none}
+  .big.hero.done .sub{color:var(--good)}
+  .big.hero.done[disabled]{opacity:1}
+  .kome{font-size:34px; font-weight:800; line-height:1; white-space:nowrap}
+  .kome .ltr{font-variant-numeric:tabular-nums}
+  .imeta.km{align-items:center; gap:10px}
+  .kpart{font-size:14px; font-weight:700; color:var(--muted)}
+  .goask{font-size:24px; font-weight:800; line-height:1.25; margin:2px 0 10px}
+  .goask .gn{font-size:46px; font-variant-numeric:tabular-nums}
+  .zone{color:var(--muted); font-size:16px; font-weight:700; margin:0 0 12px}
+  .mmap{position:relative; height:270px; border-radius:18px; overflow:hidden; background:#fff;
+        border:2px solid var(--line); margin:0 0 10px}
+  .mmap img{position:absolute; max-width:none; user-select:none; pointer-events:none}
+  .mmap svg{position:absolute; left:0; top:0; pointer-events:none}
+  .mmap .mmwait{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+        padding:18px; text-align:center; color:var(--muted); font-weight:700; font-size:16px}
+  .mmap.fail{height:auto; border-style:dashed; background:var(--warn-bg); border-color:#E7C48A}
+  .mmap.fail .mmwait{position:static; color:var(--warn)}
+  .num.exm{font-size:30px}
+  .num .eqv{font-size:24px; color:var(--good); margin-left:14px}
+  .pad.expr{grid-template-columns:repeat(6,1fr)}
+  .pad.expr .key{grid-column:span 2}
+  .pad.expr .key.op{grid-column:span 3; background:var(--cream); font-size:32px}
+  .irow{
+    display:flex; align-items:center; gap:12px; width:100%; min-height:76px; padding:10px 14px;
+    margin-bottom:10px; border-radius:18px; border:2px solid var(--line); background:var(--card);
+    font:inherit; color:var(--ink); text-align:start; cursor:pointer;
+  }
+  .irow .shot{width:56px; height:56px; border-radius:14px}
+  .irow .shot .noimg{font-size:26px}
+  .irow .tx{flex:1; min-width:0; font-size:16px; font-weight:700; line-height:1.3; overflow-wrap:anywhere}
+  .irow .sub{display:block; font-size:14px; color:var(--muted); font-weight:700}
+  .irow .rm{flex:none; min-height:58px; padding:0 16px; border-radius:14px; border:2px solid #F0C8C4;
+        background:var(--bad-bg); color:var(--bad); font:inherit; font-size:16px; font-weight:800; cursor:pointer}
+  .sumstrip{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 14px}
+  .sumcell{border-radius:16px; padding:10px 14px; background:var(--card); border:1px solid var(--line)}
+  .sumcell .fig{display:block; font-size:22px; font-weight:800; font-variant-numeric:tabular-nums}
+  .sumcell .lb{font-size:14px; font-weight:700; color:var(--muted)}
+  .sumcell.loss .fig{color:var(--bad)} .sumcell.gain .fig{color:var(--good)}
+  .rowact{width:100%; min-height:58px; margin-top:10px; border-radius:14px; border:2px solid var(--line);
+        background:var(--cream); font:inherit; font-size:16px; font-weight:800; color:var(--ink); cursor:pointer}
+  .rowact.go{background:var(--amber); border-color:var(--amber); color:#fff}
+  .rowact[disabled]{opacity:.45}
+  /* round 2: the walk's name is TWO lines at most — a 75-character catalogue name used
+     to push «ما في ولا وحدة / مو هون / رجوع» below the 844px fold */
+  .iname.clamp{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  /* the approvers' reason chips and save on the stack ledger: ≥58px like every new control */
+  .res.tall, .savebtn.tall{min-height:58px}
+  .big .sub.bad{color:var(--bad)}
   @media (max-width:380px){ .ask{font-size:21px} .big{font-size:18px} .key{height:60px} }
 </style>
 </head>
@@ -331,6 +397,82 @@ const DICT = {
     value_floor:'على الأقل', of_which:'{n} منها بلا رف',
     /* generic */
     loading:'عم نحمّل…', retry:'جرّب مرة تانية', err:'صار خطأ',
+    /* stack warehouses (phase33) — the stack NUMBER is how a person finds the goods */
+    stk:'كومة', stk_store_sub:'مستودع بأرقام الكومات',
+    cyc_door:'عدّة الصبح', cyc_resume:'كمّل عدّة الصبح', cyc_prog:'{n} من {m} كومة خلصوا',
+    cyc_all_done:'خلصت عدّة اليوم ✓', cyc_none:'ما في كومات لعدّة اليوم', cyc_fail:'ما قدرنا نحضّر عدّة اليوم',
+    cyc_local:'⚠ قائمة اليوم ما انحفظت بالسيرفر — عم تعدّ من نسخة هالجهاز',
+    short_door:'الكومة ما فيها كفاية', short_door_sub:'لقيت أقل من يلي بالورقة؟ بلّغ من هون',
+    stk_resume:'في عدّة كومات ما خلصت', stk_resume_go:'كمّل من وين وقفت',
+    sscope_cycle:'عدّة الصبح', sscope_cycle_sub:'{m} كومة لليوم',
+    sscope_all:'كل الكومات', sscope_all_sub:'جرد أساسي — للمسؤولين بس',
+    sscope_one:'كومة وحدة', sscope_one_sub:'اكتب رقمها وعدّها',
+    sscope_zone:'غرفة وحدة', sscope_zone_sub:'كل كومات غرفة',
+    pick_ask:'رقم الكومة؟', pick_why:'الرقم المكتوب عالأرض جنب البضاعة', pick_go:'تمام',
+    no_stack:'ما في كومة {n} بهالمستودع', empty_stack:'الكومة {n} ما عليها بضاعة للعدّ',
+    zone_ask:'أي غرفة؟', zone_n:'{n} كومة',
+    sready_n:'{n} كومة رح تمرّ عليها',
+    sready_how:'رح نوديك عكومة كومة. عدّ يلي عليها واكتب الرقم. ما رح نفرجيك شو المفروض يكون في — عشان العدّة تطلع صحيحة.',
+    sready_group:'في مادة عأكتر من كومة — ضفنا الكومات التانية تبعها: {list}',
+    go_ask:'روح عالكومة', arrived:'وصلت ✓', on_stack:'عليها {n} مواد',
+    map_loading:'عم نحمّل الخريطة…', map_fail:'الخريطة ما انحمّلت — دوّر عالرقم {n} المكتوب عالأرض',
+    sc_ask:'قدّيش في عهالكومة؟', sc_part:'مادة {a} من {b} عهالكومة',
+    not_here:'المادة مو عهالكومة', not_here_short:'مو هون',
+    not_here_confirm:'أكيد هالمادة مو عالكومة {n}؟ رح يوصل بلاغ للمسؤول وما رح تنعدّ هلق.',
+    re_note:'عدّها مرة تانية بهدوء', re_again:'عدّة تانية',
+    pause:'وقّف هلق — بتكمّل بعدين', pause_confirm:'توقّف هلق؟ يلي انحفظ بيضل محفوظ، وبتكمّل من نفس المحل.',
+    wdone_sub:'{n} مادة انعدّت', wdone_none:'ما انعدّت ولا مادة',
+    wdone_flag:'{n} بلاغ «المادة مو عالكومة» وصل للمسؤول',
+    wdone_base:'انسجّل جرد أساسي جديد ✓', wdone_base_no:'في كومات ما انعدّت — ما انسجّل جرد أساسي',
+    smap_ask:'شو بدك تعمل؟', smap_un:'مواد بلا كومة', smap_un_sub:'{n} مادة عندك ما إلها رقم كومة',
+    smap_un_none:'كل المواد إلها كومة ✓', smap_chk:'شو على كومة؟', smap_chk_sub:'شوف شو عليها أو شيل مادة',
+    smap_pick:'أي مادة بدك تحط؟', smap_ok_ask:'هي هون؟', smap_ok:'إي، هون ✓', smap_other:'لا — رقم تاني',
+    smap_saved:'انحطّت عالكومة {n} ✓', smap_on:'عليها هلق:', smap_nothing:'ما عليها شي',
+    smap_remove:'شيل', smap_remove_confirm:'تشيل «{name}» عن الكومة {n}؟',
+    short_ask_item:'أي مادة ما كفّت؟', short_any:'ما بعرف — وحدة منهن',
+    short_done:'وصل البلاغ ✓', short_done_sub:'الكومة {n} رح تنعدّ أول شي بعدّة الصبح',
+    led_card_sub:'قرارات وتسويات الكومات', led_title:'الفروقات',
+    led_loss:'نقص', led_gain:'زيادة', led_unvalued:'⚠ {n} مادة بلا كلفة — مو داخلة بالمبلغ',
+    led_approve:'بدها قرار', led_approve_sub:'فرق بعد عدّتين — شو صار؟',
+    led_held:'معلّقة', led_held_sub:'فرق وكان في سند ماشي عالمادة',
+    led_post:'ناطرة قصي', led_post_sub:'القرار انسجّل — لسا ما انكتبت بالأمين',
+    led_unver:'ما انعادت', led_unver_sub:'فرق بلا عدّة تانية — بترجع أول شي بعدّة الصبح',
+    led_flags:'بلاغات من الكومات', led_flags_sub:'مو عالكومة / ما فيها كفاية',
+    led_base:'خط الأساس', led_cycle:'عدّة الصبح', led_empty:'ما في شي هون ✓',
+    led_counted:'انعدّ', led_expected:'المفروض', led_value:'بقيمة', led_to_post:'لتنكتب بالأمين',
+    held_ok:'اعتمد العدّة', held_why:'ليش معلّقة:', flag_done:'تم',
+    flag_not_here:'مو عالكومة', flag_short:'ما فيها كفاية', flag_by:'بلّغ',
+    base_last:'آخر خط أساس', base_declared:'الأمين انعدّل يدوي', base_count:'جرد كامل بالتطبيق',
+    base_none:'ما في خط أساس لهالمستودع', base_set:'الأمين مطابق — ثبّت',
+    base_confirm:'رح تثبّت إنو الأمين مطابق للكومات هلق. كل عدّة قبل هيك ما عاد إلها حساب.',
+    base_open:'قبل ما تثبّت — لسا في {n} مادة مفتوحة:', base_saved:'انثبّت ✓',
+    cap_ok:'عدّة الصبح بتكفي: لازم {need} كومة باليوم، ومضبوطة على {per}',
+    cap_bad:'⚠ عدّة الصبح ما بتكفي: لازم {need} كومة باليوم، ومضبوطة على {per}',
+    cyc_reroll:'أعد عدّة اليوم', cyc_reroll_confirm:'تمسح قائمة اليوم وتعمل وحدة جديدة؟',
+    cyc_today:'قائمة اليوم', cyc_today_none:'ما في قائمة لليوم',
+    mgr_approver:'هالصفحة للمسؤولين عن الجرد بس',
+    /* round 2 */
+    stk_loading:'عم نحمّل أرقام الكومات…', stk_err:'ما قدرنا نحمّل مستودعات الكومات',
+    stk_slow:'الشبكة بطيئة — أرقام الكومات ما وصلت',
+    cyc_slow:'الشبكة بطيئة — قائمة عدّة اليوم ما وصلت',
+    stk_wait_ask:'هالمستودع شغّال بأرقام الكومات',
+    stk_wait_why:'لحظة — عم تنزل أرقام الكومات. ما منعدّو ولا منحدد أماكنه بالرفوف.',
+    stk_blocked:'لحتى توصل أرقام الكومات ما منعدّ هالمستودع ولا منحدد أماكن مواده — العدّة بالرفوف هون بتخرّب الحساب.',
+    cyc_busy:'عم نحضّر عدّة اليوم…', cyc_fail_sub:'ما قدرنا نحضّرها — شوف فوق',
+    walk_abandon:'في عدّة ما خلصت ({what}). بتتركها وتبلّش هاي؟ يلي انحفظ منها بيضل محفوظ، والفرق يلي ما انعاد بيرجع بعدّة الصبح.',
+    var_ro:'القرار بهالفروقات للمسؤولين عن الجرد بس — إنت بتشوفها وبس.',
+    led_carry:'فرق هالعدّة {v} — والفرق المفتوح من عدّة قبل {g}',
+    smap_hidden:'انعدّت قبل هيك — الكمية ما بتنعرض', smap_hidden_off:'انشالت عن كومة — الكمية ما بتنعرض',
+    stk_retry_sub:'حمّل أرقام الكومات من جديد',
+    /* round 3 */
+    var_who:'عم نتأكد مين بيقرر بهالفروقات…',
+    rack_orphan:'عدّة بالرفوف ما خلصت على {store} — هالمستودع صار بينعدّ بالكومات، فما بتنكمّل ولا بتنحفظ. هاد يلي انكتب فيها:',
+    rack_orphan_ok:'✓ شفتها — امسحها', rack_typed:'هاد يلي كتبته — ما انحفظ:',
+    rack_stop_ask:'هالمستودع بينعدّ بالكومات',
+    rack_stop_why:'العدّة بالرفوف هون ما بتنحفظ — بتخرّب الحساب. عدّوه من «عدّة الصبح» أو «كومة وحدة».',
+    rack_stop_go:'عدّ بالكومات',
+    cyc_gone:'الكومة {n} انشالت منها المادة اليوم — ما انعدّت',
+    cyc_gone_n:'الكومات {n} انشالت منها المواد اليوم — ما انعدّت',
   },
   en:{
     title:'Stock count', back:'Back',
@@ -392,6 +534,80 @@ const DICT = {
     neg_qty:'Quantity', store_word:'Warehouse', items_word:'{n} items', value_word:'worth',
     value_floor:'at least', of_which:'{n} of them with no rack',
     loading:'Loading…', retry:'Try again', err:'Something went wrong',
+    stk:'Stack', stk_store_sub:'Warehouse with numbered stacks',
+    cyc_door:'Morning count', cyc_resume:'Continue the morning count', cyc_prog:'{n} of {m} stacks done',
+    cyc_all_done:'Today’s count is done ✓', cyc_none:'No stacks to count today', cyc_fail:'Could not prepare today’s count',
+    cyc_local:'⚠ Today’s list was not saved on the server — counting from this device’s copy',
+    short_door:'A stack came up short', short_door_sub:'Found less than the sheet said? Report it here',
+    stk_resume:'You have an unfinished stack count', stk_resume_go:'Continue where you stopped',
+    sscope_cycle:'Morning count', sscope_cycle_sub:'{m} stacks for today',
+    sscope_all:'Every stack', sscope_all_sub:'Full baseline count — approvers only',
+    sscope_one:'One stack', sscope_one_sub:'Type its number and count it',
+    sscope_zone:'One room', sscope_zone_sub:'Every stack in a room',
+    pick_ask:'Which stack number?', pick_why:'The number written on the floor by the goods', pick_go:'OK',
+    no_stack:'There is no stack {n} in this warehouse', empty_stack:'Stack {n} has nothing to count on it',
+    zone_ask:'Which room?', zone_n:'{n} stacks',
+    sready_n:'{n} stacks to walk past',
+    sready_how:'We will take you stack by stack. Count what is on it and type the number. We never show you what it should be — that is what makes the count real.',
+    sready_group:'An item sits on more than one stack — its other stacks were added: {list}',
+    go_ask:'Go to stack', arrived:'I am here ✓', on_stack:'{n} items on it',
+    map_loading:'Loading the map…', map_fail:'The map did not load — look for number {n} on the floor',
+    sc_ask:'How many are on this stack?', sc_part:'Item {a} of {b} on this stack',
+    not_here:'The item is not on this stack', not_here_short:'Not here',
+    not_here_confirm:'Sure this item is not on stack {n}? A manager will be told and it will not be counted now.',
+    re_note:'Count it again, calmly', re_again:'Second count',
+    pause:'Stop now — continue later', pause_confirm:'Stop now? What is saved stays saved, and you continue from the same place.',
+    wdone_sub:'{n} items counted', wdone_none:'No item was counted',
+    wdone_flag:'{n} «not on this stack» reports went to a manager',
+    wdone_base:'A new baseline count was recorded ✓', wdone_base_no:'Some stacks were not counted — no baseline recorded',
+    smap_ask:'What do you want to do?', smap_un:'Items with no stack', smap_un_sub:'{n} items you hold have no stack number',
+    smap_un_none:'Every item has a stack ✓', smap_chk:'What is on a stack?', smap_chk_sub:'See what is on it, or take an item off',
+    smap_pick:'Which item are you placing?', smap_ok_ask:'Is it here?', smap_ok:'Yes, here ✓', smap_other:'No — another number',
+    smap_saved:'Placed on stack {n} ✓', smap_on:'On it now:', smap_nothing:'Nothing on it',
+    smap_remove:'Remove', smap_remove_confirm:'Take «{name}» off stack {n}?',
+    short_ask_item:'Which item came up short?', short_any:'Not sure — one of them',
+    short_done:'Reported ✓', short_done_sub:'Stack {n} will be counted first in the morning count',
+    led_card_sub:'Stack decisions and adjustments', led_title:'Differences',
+    led_loss:'Short', led_gain:'Over', led_unvalued:'⚠ {n} items have no cost — not in the amount',
+    led_approve:'Need a decision', led_approve_sub:'A difference after two counts — what happened?',
+    led_held:'On hold', led_held_sub:'A difference while a slip on the item was still open',
+    led_post:'Waiting for Qusay', led_post_sub:'Decided — not yet typed into Al-Ameen',
+    led_unver:'Not recounted', led_unver_sub:'A difference with no second count — it comes back first in the morning count',
+    led_flags:'Reports from the stacks', led_flags_sub:'Not on the stack / came up short',
+    led_base:'Baseline', led_cycle:'Morning count', led_empty:'Nothing here ✓',
+    led_counted:'Counted', led_expected:'Expected', led_value:'worth', led_to_post:'to type into Al-Ameen',
+    held_ok:'Accept the count', held_why:'Why on hold:', flag_done:'Done',
+    flag_not_here:'Not on the stack', flag_short:'Came up short', flag_by:'Reported by',
+    base_last:'Latest baseline', base_declared:'Al-Ameen corrected by hand', base_count:'Full count in the app',
+    base_none:'No baseline for this warehouse', base_set:'Al-Ameen matches — lock it in',
+    base_confirm:'You are declaring that Al-Ameen matches the stacks right now. Every count before this stops counting.',
+    base_open:'Before you lock it in — {n} items are still open:', base_saved:'Locked in ✓',
+    cap_ok:'The morning count keeps up: {need} stacks a day needed, set to {per}',
+    cap_bad:'⚠ The morning count cannot keep up: {need} stacks a day needed, set to {per}',
+    cyc_reroll:'Redo today’s count', cyc_reroll_confirm:'Delete today’s list and make a new one?',
+    cyc_today:'Today’s list', cyc_today_none:'No list for today',
+    mgr_approver:'This screen is for the people who approve counts',
+    stk_loading:'Loading the stack numbers…', stk_err:'Could not load the stack warehouses',
+    stk_slow:'The network is slow — the stack numbers did not arrive',
+    cyc_slow:'The network is slow — today\'s count list did not arrive',
+    stk_wait_ask:'This warehouse works by stack numbers',
+    stk_wait_why:'One moment — the stack numbers are loading. It is not counted or mapped by racks.',
+    stk_blocked:'Until the stack numbers arrive this warehouse cannot be counted or mapped — a rack count here would break the figures.',
+    cyc_busy:'Preparing today’s count…', cyc_fail_sub:'Could not prepare it — see above',
+    walk_abandon:'A count is not finished ({what}). Leave it and start this one? What was saved stays saved, and a difference that was not recounted comes back in the morning count.',
+    var_ro:'Only the people who approve counts can decide these — you can only see them.',
+    led_carry:'This count’s difference {v} — the open difference from an earlier count {g}',
+    smap_hidden:'Counted before — the quantity is not shown', smap_hidden_off:'Taken off a stack — the quantity is not shown',
+    stk_retry_sub:'Load the stack numbers again',
+    /* round 3 */
+    var_who:'Checking who decides these…',
+    rack_orphan:'An unfinished rack count on {store} — this warehouse now counts by stacks, so it cannot be continued or saved. This is what was typed in it:',
+    rack_orphan_ok:'✓ Seen — clear it', rack_typed:'What you typed — not saved:',
+    rack_stop_ask:'This warehouse counts by stacks',
+    rack_stop_why:'A rack count is not saved here — it would break the figures. Count it from «Morning count» or «One stack».',
+    rack_stop_go:'Count by stacks',
+    cyc_gone:'Stack {n} was emptied today — it was not counted',
+    cyc_gone_n:'Stacks {n} were emptied today — they were not counted',
   },
 };
 let LANG = localStorage.getItem(LANG_KEY) || 'ar';
@@ -491,6 +707,16 @@ const S = {
   result:null, reIdx:0, reVals:{},
   mapList:[], mapIdx:0, mapRack:'', mapLevel:'', mapSaved:0,
   probs:null, probKind:'', res:{}, busy:false, msg:'',
+  // stack warehouses (phase33) — S.stk stays null pre-paste / no map / demo
+  stk:null, isApprover:false, branches:[], walk:null, walkDone:null, pendingStart:null,
+  sScope:null, pickMode:'', pickNo:null, smItem:null, led:null, ledStore:'', ledKind:'',
+  // round 2 (D10): the stack loads run BEHIND the home screen. stkState: idle | loading |
+  // ok | none (no map, pre-paste, demo) | err. p33: phase33 present (true/false), or null
+  // while unknown. openVarAll: every open rack difference; openVar hides stack stores.
+  stkState:'idle', stkErr:'', p33:null, openVarAll:[], resErr:{},
+  // round 3 (W10): TRUE only once my stock_approvers row was actually READ — «you only see
+  // them» is said to someone the server says is not an approver, never to someone unknown
+  apprKnown:false,
 };
 const DRAFT = () => AU.DRAFT_KEY(me().id || 'anon');
 
@@ -518,6 +744,7 @@ async function loadAll(){
     restAll('staff_roles?select=uid,role,branch_id'),
   ]);
   S.items = items;
+  S.branches = branches;
   const locs = new Map();
   for(const r of locRows){ const l = locs.get(r.code) || []; l.push(r); locs.set(r.code, l); }
   S.locs = locs;
@@ -551,6 +778,46 @@ function readDraft(){
   }catch{}
   return null;
 }
+/* ── W1 (round 3): what was typed in a RACK count on a STACK warehouse is kept, never saved ──
+   The values are not resumable and not saveable there (phase33 refuses a count with no stacks
+   in a mapped warehouse), but they are someone's work — they stay on screen, on this device,
+   until the person says they have seen them. */
+const ORPH = () => `lw_wh_rack_orphan_v1_${me().id || 'anon'}`;
+function readOrphans(){ try{ const a = JSON.parse(localStorage.getItem(ORPH()) || '[]'); return Array.isArray(a) ? a : []; }catch{ return []; } }
+function orphanRack(store, vals){
+  const v = {};
+  for(const [c, x] of Object.entries(vals || {})) if(x != null && x !== '') v[c] = String(x);
+  if(!Object.keys(v).length) return;
+  try{
+    const a = readOrphans(), i = a.findIndex((o)=> o.store === store);
+    if(i >= 0) a[i] = { store, vals:Object.assign({}, a[i].vals, v), at:Date.now() };
+    else a.unshift({ store, vals:v, at:Date.now() });
+    localStorage.setItem(ORPH(), JSON.stringify(a.slice(0, 3)));
+  }catch{}
+}
+function dropOrphan(store){
+  try{ const a = readOrphans().filter((o)=> o.store !== store);
+       if(a.length) localStorage.setItem(ORPH(), JSON.stringify(a)); else localStorage.removeItem(ORPH()); }catch{}
+}
+// a rack draft on a store the loaded maps say is stacked: out of the resume slot, into a note
+function triageRackDraft(){
+  const d = readDraft();
+  if(d && isStackStore(d.store)){ orphanRack(d.store, d.vals); clearDraft(); }
+}
+const orphanList = (o) => `<ul class="orph">${Object.entries(o.vals).map(([c, v])=> {
+  const it = (S.items || []).find((i)=> i.code === c);
+  return `<li>${bdi((it && it.name) || c)} <span class="ltr v">${esc(v)}</span></li>`; }).join('')}</ul>`;
+function orphanHtml(){
+  return readOrphans().map((o)=> `<div class="note warn">${t('rack_orphan', { store: bdi(o.store) })}${orphanList(o)}</div>
+    <button class="big calm" data-orph="${esc(o.store)}"><span class="tx">${t('rack_orphan_ok')}</span></button>`).join('');
+}
+// a rack count that turned out to be on a stack warehouse STOPS here, loudly
+function rackStop(store, vals){
+  orphanRack(store, vals);
+  clearDraft(); S.vals = {}; S.reVals = {}; PAD = '';
+  S.store = store; S.stack = ['home']; go('rackstop', false);
+}
+const STACK_REFUSED = /بينعدّ بالكومات/;      // phase33's own refusal of a stack-less count there
 
 /* ───────────────────────── screens ─────────────────────────
    Each renderer returns HTML for <main> and wires its own handlers in wire().
@@ -610,12 +877,26 @@ SCREENS.login = {
 SCREENS.home = {
   back:false, title:()=>t('title'),
   html(){
+    // ⚠ W1 (round 3): a RACK draft on a warehouse that counts by STACKS is never resumable —
+    // it would open HEAD's rack counter there (no stacks, no pick attribution, no hold: a
+    // false shortage an approver could post on top of a live slip). Confirmed stacked ⇒ the
+    // draft becomes a note that keeps what was typed; KNOWN stacked while the stack numbers
+    // load or failed ⇒ it waits, with no «كمّل».
+    triageRackDraft();
     const d = readDraft();
+    const dWait = !!(d && stackBlocked(d.store));
     const n = me().name;
+    const wd = S.stk ? readWDraft() : null;
     return `
       ${n ? `<p class="askwhy" style="margin-bottom:10px">${t('hello')} ${esc(n)} 👋</p>` : ''}
-      ${d ? `<div class="note warn">${t('resume')} — ${bdi(d.store)}</div>
+      ${orphanHtml()}
+      ${d && dWait ? `<div class="note warn">${t('resume')} — ${bdi(d.store)}<br>${t('stk_blocked')}</div>` : ''}
+      ${d && !dWait ? `<div class="note warn">${t('resume')} — ${bdi(d.store)}</div>
              <button class="big hero" id="resume">▶️ ${t('resume_go')}</button>` : ''}
+      ${wd && wd.scope.kind !== 'cycle' ? `<div class="note warn">${t('stk_resume')} — ${bdi(stackLabel(wd.store))}</div>
+             <button class="big hero" id="wresume">▶️ ${t('stk_resume_go')}</button>` : ''}
+      ${stkHomeState()}
+      ${stackStores().map((st)=> cycleDoorHtml(st, wd)).join('')}
       <p class="ask">${t('home_ask')}</p>
       <button class="big" id="tocount"><span class="ic">📦</span>
         <span class="tx">${t('home_count')}<span class="sub">${t('home_count_sub')}</span></span>
@@ -623,7 +904,10 @@ SCREENS.home = {
       <button class="big" id="tomap"><span class="ic">📍</span>
         <span class="tx">${t('home_map')}<span class="sub">${t('home_map_sub')}</span></span>
         <span class="go">${FWD()}</span></button>
-      ${S.isManager ? `<button class="big warnbtn" id="toprob"><span class="ic">⚠️</span>
+      ${stackStores().length ? `<button class="big" id="toshort"><span class="ic">📉</span>
+        <span class="tx">${t('short_door')}<span class="sub">${t('short_door_sub')}</span></span>
+        <span class="go">${FWD()}</span></button>` : ''}
+      ${S.isManager || (S.isApprover && stackStores().length) ? `<button class="big warnbtn" id="toprob"><span class="ic">⚠️</span>
         <span class="tx">${t('home_prob')}<span class="sub">${t('home_prob_sub')}</span></span>
         <span class="go">${FWD()}</span></button>` : ''}
       <button class="big calm" id="out" style="margin-top:26px;font-size:17px">
@@ -633,12 +917,25 @@ SCREENS.home = {
     const r = document.getElementById('resume');
     if(r) r.onclick = ()=>{
       const d = readDraft();
+      // the stack numbers may have landed since this screen was drawn — ask again at the tap
+      if(!d || isStackStore(d.store) || stackBlocked(d.store)) return render();
       S.store = d.store; S.scope = d.scope || {kind:'store'}; S.vals = d.vals || {};
       buildList(); S.idx = Math.min(d.idx || 0, Math.max(0, S.list.length-1));
       S.stack = ['home']; go('count', false);
     };
     document.getElementById('tocount').onclick = ()=>{ S.mode='count'; go('store'); };
     document.getElementById('tomap').onclick   = ()=>{ S.mode='map';   go('store'); };
+    const wr = document.getElementById('wresume'); if(wr) wr.onclick = ()=> resumeWalk();
+    document.querySelectorAll('[data-orph]').forEach((b)=>{ b.onclick = ()=>{ dropOrphan(b.getAttribute('data-orph')); render(); }; });
+    refreshHomeBg(false);
+    document.querySelectorAll('[data-cyc]').forEach((b)=>{ b.onclick = ()=>{ S.store = b.getAttribute('data-cyc'); openCycle(S.store); }; });
+    wireStkRetry();
+    const sh = document.getElementById('toshort');
+    if(sh) sh.onclick = ()=>{
+      const ss = stackStores();
+      if(ss.length === 1){ S.store = ss[0]; S.pickMode = 'short'; PAD = ''; go('stkpick'); }
+      else { S.mode = 'short'; go('store'); }
+    };
     const p = document.getElementById('toprob');
     if(p) p.onclick = ()=>{ go('problems'); };
     document.getElementById('out').onclick = ()=>{
@@ -649,14 +946,14 @@ SCREENS.home = {
 
 /* ── one question: which warehouse ── */
 SCREENS.store = {
-  back:true, title:()=>S.mode==='map' ? t('home_map') : t('home_count'),
+  back:true, title:()=>S.mode==='map' ? t('home_map') : S.mode==='short' ? t('short_door') : t('home_count'),
   html(){
     const stale = AU.storeStaleness(S.sessions, S.stores, S.items);
     const byStore = new Map(stale.map((s)=>[s.store,s]));
     return `
       <p class="ask">${t('store_ask')}</p>
       <p class="askwhy">${t('store_why')}</p>
-      ${S.stores.map((s)=>{
+      ${(S.mode === 'short' ? stackStores() : S.stores).map((s)=>{
         const st = byStore.get(s) || {};
         const home = AU.isHomeStore(s);
         const sub = home ? t('store_home_no')
@@ -675,12 +972,27 @@ SCREENS.store = {
         // ⚠ a private home is REFUSED, with the reason — never silently disabled
         if(AU.isHomeStore(s)){ S.store = s; go('homestore'); return; }
         S.store = s;
-        if(S.mode === 'map'){ S.mapList = AU.unmappedList(S.items, S.locs, s); S.mapIdx = 0; S.mapSaved = 0; go('map'); }
-        else go('scope');
+        // a STACK store has its own flows; a rack store continues exactly as before
+        if(isStackStore(s)){ routeStack(s, true); return; }
+        // ⚠ D10: a store KNOWN to be stacked (this device's last good map list, or a
+        // «كومة …» label) while the stacks are still loading or failed is REFUSED the rack
+        // flows — a rack count there carries no stacks and re-opens decided gaps
+        if(stackBlocked(s)){ go('stkwait'); return; }
+        routeRack(s, true);
       };
     });
   },
 };
+
+function routeStack(s, push){
+  if(S.mode === 'map') go('smap', push);
+  else if(S.mode === 'short'){ S.pickMode = 'short'; PAD = ''; go('stkpick', push); }
+  else go('stkscope', push);
+}
+function routeRack(s, push){
+  if(S.mode === 'map'){ S.mapList = AU.unmappedList(S.items, S.locs, s); S.mapIdx = 0; S.mapSaved = 0; go('map', push); }
+  else go('scope', push);
+}
 
 SCREENS.homestore = {
   back:true, title:()=>t('home_prob'),
@@ -778,6 +1090,25 @@ SCREENS.ready = {
 /* ── THE COUNTER: one item per screen. ⚠ NO QUANTITY IS SHOWN. ── */
 let PAD = '';
 function padHtml(val, hint){
+  // ⚠ 'expr' (the stack count: × and + for cartons) and 'int' (a stack number) are
+  // separate layouts; the plain rack counter below is untouched.
+  if(hint === 'expr') return `
+    <div class="num${val ? '' : ' empty'}${/[×+]/.test(val || '') ? ' exm' : ''}" id="numbox">${exprInner(val)}</div>
+    <div class="pad expr">
+      ${[1,2,3,4,5,6,7,8,9].map((d)=>`<button class="key" data-d="${d}">${d}</button>`).join('')}
+      <button class="key del" data-d="del">${t('clear')}</button>
+      <button class="key" data-d="0">0</button>
+      <button class="key" data-d=".">.</button>
+      <button class="key op" data-d="×" aria-label="×">×</button>
+      <button class="key op" data-d="+" aria-label="+">+</button>
+    </div>`;
+  if(hint === 'int') return `
+    <div class="num${val ? '' : ' empty'}" id="numbox">${val ? esc(val) : '—'}</div>
+    <div class="pad">
+      ${[1,2,3,4,5,6,7,8,9].map((d)=>`<button class="key" data-d="${d}">${d}</button>`).join('')}
+      <button class="key del" data-d="del">${t('clear')}</button>
+      <button class="key" data-d="0" style="grid-column:span 2">0</button>
+    </div>`;
   return `
     <div class="num${val ? '' : ' empty'}" id="numbox">${val ? esc(val) : '—'}</div>
     <div class="pad">
@@ -788,11 +1119,12 @@ function padHtml(val, hint){
       <button class="key plus" data-d="+1" style="grid-column:1 / -1">+1</button>
     </div>`;
 }
-function wirePad(onChange){
+function wirePad(onChange, mode){
   document.querySelectorAll('[data-d]').forEach((k)=>{
     k.onclick = ()=>{
       const d = k.getAttribute('data-d');
-      if(d === 'del') PAD = '';                 // clear the whole entry — see the head comment
+      if(mode === 'expr' || mode === 'int') PAD = padPress(PAD, d, mode);
+      else if(d === 'del') PAD = '';                 // clear the whole entry — see the head comment
       else if(d === '+1'){ const n = AU.numOf(PAD); PAD = String((n == null ? 0 : n) + 1); }
       else if(d === '.'){ if(!PAD.includes('.')) PAD = (PAD || '0') + '.'; }
       else PAD = (PAD === '0' ? '' : PAD) + d;
@@ -859,6 +1191,27 @@ SCREENS.count = {
 
 SCREENS.saving = { back:false, html:()=>`<div class="state">${t('saving')}</div>` };
 
+SCREENS.rackstop = {
+  back:false, title:()=> esc(S.store),
+  html(){
+    const o = readOrphans().find((x)=> x.store === S.store);
+    return `<div class="doneicon">⚠️</div>
+      <p class="donebig">${t('rack_stop_ask')}</p>
+      <p class="donesub">${bdi(S.store)}</p>
+      <div class="note bad">${t('rack_stop_why')}</div>
+      ${o ? `<div class="note warn">${t('rack_typed')}${orphanList(o)}</div>` : ''}
+      <button class="big hero" id="tostk">${t('rack_stop_go')} ${FWD()}</button>
+      <button class="big calm" id="hm">${t('home_btn')}</button>`;
+  },
+  wire(){
+    document.getElementById('tostk').onclick = ()=>{
+      S.mode = 'count'; S.stack = ['home', 'store'];
+      if(isStackStore(S.store)) routeStack(S.store, false); else go('stkwait', false);
+    };
+    document.getElementById('hm').onclick = ()=>{ S.stack = []; go('home', false); };
+  },
+};
+
 /* ── save: expected is computed HERE, server-fresh (the Aug-9 cashbox lesson) ── */
 async function doSave(){
   const entries = S.list.map((r)=>({ code:r.code, counted: AU.numOf(S.vals[r.code]), loc:r.loc }))
@@ -902,8 +1255,9 @@ async function doSave(){
     loadAll().catch(()=>{});
   }catch(e){
     const m = String(e.message || e);
+    if(STACK_REFUSED.test(errText(e))) return rackStop(S.store, S.vals);
     go('saveerr', false, AU.TABLE_MISSING.test(m)
-      ? `${t('sql_missing')} ${AU.COUNT_SQL_FILE}` : `${t('save_err')} — ${m.slice(0,140)}`);
+      ? `${t('sql_missing')} ${AU.COUNT_SQL_FILE}` : `${t('save_err')} — ${errText(e).slice(0,160)}`);
   }
 }
 async function closeSession(id, items, off){
@@ -986,7 +1340,7 @@ async function doRecount(){
     S.result = Object.assign({}, S.result, { rows:finalRows, offFinal:off });
     go('done', false);
     loadAll().catch(()=>{});
-  }catch(e){ go('saveerr', false, `${t('save_err')} — ${String(e.message).slice(0,140)}`); }
+  }catch(e){ go('saveerr', false, `${t('save_err')} — ${errText(e).slice(0,160)}`); }
 }
 
 /* ── done ── */
@@ -1066,7 +1420,7 @@ SCREENS.map = {
         const l = S.locs.get(r.code) || []; l.push({ code:r.code, store:S.store, loc }); S.locs.set(r.code, l);
         S.mapSaved++; PAD=''; S.mapIdx++; S.msg=''; render();
       }catch(e){
-        S.msg = `${t('save_err')} — ${String(e.message).slice(0,120)}`; render();
+        S.msg = `${t('save_err')} — ${errText(e).slice(0,160)}`; render();
       }
     };
   },
@@ -1085,7 +1439,15 @@ function computeProblems(){
 SCREENS.problems = {
   back:true, title:()=>t('home_prob'),
   html(){
-    if(!S.isManager) return `<p class="ask">${t('mgr_only')}</p>`;
+    if(!S.isManager && !S.isApprover) return `<p class="ask">${t('mgr_only')}</p>`;
+    // approvers of a STACK store get «⚖️ الفروقات» — the ledger replaces the old
+    // variance list for those stores (their rows are filtered out of S.openVar)
+    const led = S.isApprover && S.stk ? stackStores().map((st)=>{ const n = (S.stk.ledN.get(st) || 0) +
+        S.stk.flags.filter((f)=> f.store === st).length;
+      return `<button class="big${n ? ' warnbtn' : ''}" data-led="${esc(st)}"><span class="ic">⚖️</span>
+        <span class="tx">${t('led_title')}<span class="sub">${bdi(stackLabel(st))}</span><span class="sub">${t('led_card_sub')}</span></span>
+        <span class="n">${n}</span></button>`; }).join('') : '';
+    if(!S.isManager) return `<p class="ask">${t('prob_ask')}</p>${msgHtml()}${led}`;
     const p = S.probs || (S.probs = computeProblems());
     const v = S.openVar || [];
     const card = (id, ic, k, n, tone) => `
@@ -1096,7 +1458,9 @@ SCREENS.problems = {
     const total = v.length + p.neg.length + p.stale.length + p.unmapped.length + p.home.length;
     return `
       <p class="ask">${t('prob_ask')}</p>
-      ${total ? '' : `<div class="note good">${t('p_none')}</div>`}
+      ${msgHtml()}
+      ${led}
+      ${total || led ? '' : `<div class="note good">${t('p_none')}</div>`}
       ${card('var','⚖️','var',v.length)}
       ${card('neg','➖','neg',p.neg.length)}
       ${card('stale','🗓️','stale',p.stale.length)}
@@ -1107,6 +1471,7 @@ SCREENS.problems = {
     document.querySelectorAll('[data-p]').forEach((b)=>{
       b.onclick = ()=>{ S.probKind = b.getAttribute('data-p'); go('problist'); };
     });
+    document.querySelectorAll('[data-led]').forEach((b)=>{ b.onclick = ()=> openLedger(b.getAttribute('data-led')); });
   },
 };
 
@@ -1118,7 +1483,21 @@ SCREENS.problist = {
     if(k === 'var'){
       const rows = S.openVar || [];
       const RES = ['miscount','bill','damaged','missing','adjust'];
-      return `<p class="ask">${t('p_var')}</p><p class="askwhy">${t('p_var_sub')}</p>` + rows.map((r)=>{
+      // ⚠ D3 (28 Sep, round 2): phase33's guard lets only an APPROVER set a reason, in
+      // EVERY warehouse, and an approved rack difference becomes a ⚖️ card for Qusay.
+      // The page matches the server: everyone else sees the rows read-only, with why.
+      // Before the paste (p33 === false) and for the demo this list is HEAD's.
+      const canDecide = S.p33 === false || S.isApprover;
+      // ⚠ W10 (round 3): «للمسؤولين بس» ONLY when my approver row was read and is absent.
+      // While it loads the screen says it is checking; when the read failed it says THAT,
+      // with the retry — an approver was told he could only look (the sentence was false).
+      const who = canDecide || !rows.length ? ''
+        : S.apprKnown ? `<div class="note warn">${t('var_ro')}</div>`
+        : S.stkState === 'err' ? `<div class="note bad">${t('stk_err')}: ${bdi(S.stkErr)}</div>
+            <button class="big" id="stkretry"><span class="ic">🔄</span><span class="tx">${t('retry')}<span class="sub">${t('stk_retry_sub')}</span></span></button>`
+        : `<div class="note">${t('var_who')}</div>`;
+      return `<p class="ask">${t('p_var')}</p><p class="askwhy">${t('p_var_sub')}</p>`
+        + who + rows.map((r)=>{
         const it = (S.items||[]).find((i)=>i.code===r.code) || {};
         const e = S.res[r.id] || {};
         const d = Number(r.variance);
@@ -1126,9 +1505,10 @@ SCREENS.problist = {
           <div class="rowtop"><span class="rowname">${esc(it.name || r.code)}</span>
             <span class="figure ${d<0?'bad':'good'}">${d<0?'−':'+'}${ltr(Math.abs(d))}</span></div>
           <div class="rowsub">${esc(r.store)} · ${ltr(r.code)} · ${t('var_expected')} ${ltr(r.expected)} · ${t('var_counted')} ${ltr(r.recount != null ? r.recount : r.counted)}</div>
-          <div class="rowsub" style="margin-top:8px">${t('res_ask')}</div>
+          ${canDecide ? `<div class="rowsub" style="margin-top:8px">${t('res_ask')}</div>
           <div class="reschips">${RES.map((x)=>`<button class="res${e.kind===x?' on':''}" data-res="${esc(r.id)}" data-kind="${x}">${t('res_'+x)}</button>`).join('')}</div>
-          <button class="savebtn" data-save="${esc(r.id)}" ${e.kind?'':'disabled'}>${t('res_save')}</button>
+          ${S.resErr[r.id] ? `<div class="note bad" style="margin:10px 0 0">${esc(S.resErr[r.id])}</div>` : ''}
+          <button class="savebtn" data-save="${esc(r.id)}" ${e.kind?'':'disabled'}>${t('res_save')}</button>` : ''}
         </div>`;
       }).join('') || `<div class="note good">${t('p_none')}</div>`;
     }
@@ -1151,6 +1531,7 @@ SCREENS.problist = {
     return '';
   },
   wire(){
+    wireStkRetry();
     document.querySelectorAll('[data-res]').forEach((b)=>{
       b.onclick = ()=>{
         const id = b.getAttribute('data-res');
@@ -1163,14 +1544,1533 @@ SCREENS.problist = {
         const id = b.getAttribute('data-save');
         const e = S.res[id]; if(!e || !e.kind) return;
         b.disabled = true; b.textContent = t('saving');
+        // after phase33 the reason is written as a PAIR (the label Qusay reads, the kind the
+        // server keys on) — the ⚖️ card for Qusay is built from resolution_kind
+        const body = { resolution: S.p33 ? DICT.ar['res_'+e.kind] : t('res_'+e.kind),
+          resolved_by: me().name, resolved_at: new Date().toISOString() };
+        if(S.p33) body.resolution_kind = e.kind;
         try{
-          await rest(`stock_counts?id=eq.${id}`, { method:'PATCH', body: JSON.stringify({
-            resolution: t('res_'+e.kind), resolved_by: me().name, resolved_at: new Date().toISOString() }) });
-          S.openVar = (S.openVar||[]).filter((r)=> String(r.id) !== String(id));
+          await rest(`stock_counts?id=eq.${id}`, { method:'PATCH', body: JSON.stringify(body) });
+          const gone = (r)=> String(r.id) !== String(id);
+          S.openVar = (S.openVar||[]).filter(gone); S.openVarAll = (S.openVarAll||[]).filter(gone);
+          delete S.resErr[id];
           render();
-        }catch(err){ b.disabled = false; b.textContent = `${t('save_err')}`; }
+        }catch(err){
+          // the server's own sentence («القرار للمسؤولين بس»), never a bare «ما قدرنا نحفظ»
+          S.resErr[id] = `${t('save_err')} — ${errText(err).slice(0,160)}`; render();
+        }
       };
     });
+  },
+};
+
+/* ═════════════════════ STACK WAREHOUSES (phase33, 28 Sep 2026) ═════════════════════
+   Samir: the warehouses are floor-stacked, not racked, and every stack carries ONE
+   number across the whole floor. A warehouse with an active warehouse_maps row is a
+   STACK store; everything in this block applies to stack stores only, and a rack
+   store keeps every flow above byte-for-byte.
+
+   ⚠ DEGRADES TO TODAY'S PAGE: pre-paste (phase33 missing), no map, or the demo
+   login ⇒ S.stk stays null and not one stack door is drawn. ⚠ The loads run BEHIND the
+   home screen (round 2, D10): the boot is HEAD's, the stack doors appear a moment later,
+   a hang times out after STK_TIMEOUT, and a transient failure is loud on home with a
+   retry — while a store KNOWN to be stacked is refused the rack flows until they land.
+
+   ⚠ BLIND, again: no screen a counter sees shows the expected figure, the variance,
+   or the reason a stack was picked for the morning (the cycle reason tags stay on
+   the server). The only numbers on a counting screen are the stack number and what
+   the person typed.
+
+   ⚠ ONE DELIBERATE DEPARTURE from the design note «recount only if not held»: a HELD
+   difference is recounted too (RECOUNT_HELD). stock_ledger tests «difference and no
+   recount ⇒ unverified» BEFORE «held», so a held row without a recount would never
+   reach the approvers' «معلّقة» list, and «اعتمد العدّة» (held=false) would accept a
+   row stock_positions still refuses (eligible needs variance≈0 OR a recount). The
+   phase33 SQL harness (5.19) inserts its held row WITH a recount. Flip to false in one
+   line if the model ever changes. Confirmed necessary by the lead (round 2, D4), as is
+   counting a «not on this stack» report as dealt with in the day's progress. */
+const RECOUNT_HELD = true;
+const WP_R = 20;                 // the waypoint disc: D=40, the print's gate formula
+// ⚠ the mini-map is NOT the print. At the print's 1.10…1.37 the 360-px window around a
+// stack is mostly white floor — no wall, no room name, nothing to orient by (eyeballed on
+// stack 14, 28 Sep). A smaller scale shows the room.
+// ⚠ D9 (round 2): the DISC SCALES WITH THE MAP. The print's r=20 on a 0.7 map covered 28.6
+// plan px and put 9 of 117 discs on walls (the push clears only the stack's own wall — the
+// round-1 claim «the gate holds at any scale» was false). r = 20 × s / 1.10 keeps the
+// print's disc-to-plan ratio, floored at 14 px. At 0.70 even r=14 left stack 100 on the
+// partition (16 wall pixels); at 0.77 r is exactly 14 and stack-verify proves 0 wall
+// pixels under all 117 discs with the page's own discAt.
+const MINI_SCALE = 0.77;
+const MINI_R = Math.max(14, WP_R * MINI_SCALE / 1.10);
+const MINI_MARGIN = 36;          // the plan may sit this far in from the frame, so an edge stack is never clipped
+const STK_DRAFT = () => `lw_wh_stack_draft_v2_${me().id || 'anon'}`;
+const enc = encodeURIComponent;
+const inList = (arr) => `in.(${arr.map((v)=> enc('"' + String(v).replace(/"/g,'\\"') + '"')).join(',')})`;
+function isDemoUser(){
+  const a = savedAuth();
+  return !!(a && a.user && a.user.user_metadata && a.user.user_metadata.demo === true);
+}
+const isStackStore = (s) => !!(S.stk && S.stk.maps.has(s));
+const stackStores = () => S.stk ? S.stores.filter(isStackStore) : [];
+// ⚠ BOUNDED (round 3, W2): a gateway in front of Supabase (Cloudflare 520/522/524) answers
+// with an HTML PAGE, not PostgREST JSON. Printed whole it was a 3,700-px wall of markup on
+// home that also widened the page past the screen. HTML becomes «HTTP <status>»; any other
+// text is cut at 180 characters. Every message a person reads goes through here — the
+// full text is still on e.message for the tests that key on it (23505, TABLE_MISSING…).
+function errText(e){
+  const m = String((e && e.message) || e || '');
+  let s = m;
+  try{ const j = JSON.parse(m); s = String(j.message || j.error_description || j.error || m); }catch{}
+  if(/^\s*</.test(s)) return `HTTP ${(e && e.status) || ''}`.trim();
+  return s.length > 180 ? s.slice(0, 179) + '…' : s;
+}
+const stkMissing = (e) => { const m = String((e && e.message) || e || ''); return AU.TABLE_MISSING.test(m) || AU.STACKS_MISSING.test(m); };
+const stkErrMsg = (e) => {
+  const m = String((e && e.message) || e || '');
+  if(AU.STACKS_MISSING.test(m)) return `${t('sql_missing')} ${AU.STACKS_SQL_FILE}`;
+  if(AU.TABLE_MISSING.test(m)) return `${t('sql_missing')} ${AU.COUNT_SQL_FILE}`;
+  return `${t('save_err')} — ${errText(e).slice(0,180)}`;
+};
+const mirrorOf = (rows) => (rows || []).reduce((m,r)=> (r && r.synced_at && r.synced_at > m ? r.synced_at : m), '') || null;
+// a slip Qusay has already typed into Al-Ameen (NEEDS_PRICE = typed, only the price is missing)
+const typedSlip = (w) => w.status === 'done' || (w.status === 'flagged' && w.flag_reason === 'NEEDS_PRICE');
+const isHubStore = (store) => !(S.branches || []).some((b)=> b.active && b.kind !== 'hub' && (b.stores || []).includes(store));
+const itemOf = (code) => (S.items || []).find((i)=> i.code === code) || { code, name:code, stock_by_store:{} };
+const dayOf = (iso) => iso ? AU.damascusDay(new Date(iso)) : '';
+const stackLabel = (store) => { const m = S.stk && S.stk.maps.get(store); return (m && m.label) || store; };
+
+/* ── load: in the BACKGROUND, behind a home screen that is already up (D10) ── */
+const STK_TIMEOUT = 8000;                      // a hung request must not hold the rack flows
+const STK_CACHE = 'lw_wh_stack_stores_v1';     // this device's last GOOD map list
+let STK_GEN = 0;                               // a retry makes every older load stale
+const p33Missing = (e) => AU.TABLE_MISSING.test(String((e && e.message) || e || ''));
+function readStkCache(){ try{ const a = JSON.parse(localStorage.getItem(STK_CACHE) || 'null'); return Array.isArray(a) ? a : null; }catch{ return null; } }
+function writeStkCache(stores){ try{ localStorage.setItem(STK_CACHE, JSON.stringify(stores)); }catch{} }
+// the stores this device KNOWS are stacked. Once the maps are loaded they alone decide;
+// until then the last good list and any «كومة …» label (the server mirrors every stack
+// into item_locations) stand in for them
+function knownStackStores(){
+  const out = new Set();
+  if(isDemoUser()) return out;
+  if(S.stk) for(const k of S.stk.maps.keys()) out.add(k);
+  if(S.stkState === 'ok' || S.stkState === 'none') return out;
+  for(const k of readStkCache() || []) out.add(k);
+  if(S.locs) for(const rows of S.locs.values()) for(const r of rows) if(String(r.loc || '').startsWith('كومة')) out.add(r.store);
+  return out;
+}
+// a store the page must not run a RACK flow on right now
+const stackBlocked = (s) => (S.stkState === 'loading' || S.stkState === 'err') && !isStackStore(s) && knownStackStores().has(s);
+function applyOpenVar(){
+  const ks = knownStackStores();
+  S.openVar = (S.openVarAll || []).filter((r)=> !ks.has(r.store));
+}
+function startStacks(){
+  const gen = ++STK_GEN;
+  S.stkErr = '';
+  if(isDemoUser()){ S.stk = null; S.stkState = 'none'; S.p33 = false; S.isApprover = false; return Promise.resolve(); }
+  S.stkState = 'loading';
+  const timer = setTimeout(()=>{
+    if(gen !== STK_GEN || S.stkState !== 'loading') return;
+    S.stkState = 'err'; S.stkErr = t('stk_slow'); stacksLanded();
+  }, STK_TIMEOUT);
+  return loadStacks(gen).then((state)=>{
+    if(gen === STK_GEN){ S.stkState = state; S.stkErr = ''; }
+  }, (e)=>{
+    if(gen !== STK_GEN) return;
+    console.warn('stacks:', errText(e));
+    S.stkState = 'err'; S.stkErr = errText(e) || t('err');
+  }).finally(()=>{ clearTimeout(timer); if(gen === STK_GEN) stacksLanded(); });
+}
+async function loadStacks(gen){
+  const uid = me().id;
+  // the map list and MY approver row first, each on its own (the ledger door needs the
+  // second even where there is no map: D3 makes every difference an approver's call)
+  const [mapsR, apprR] = await Promise.allSettled([
+    restAll('warehouse_maps?select=*&active=eq.true'),
+    uid ? restAll(`stock_approvers?select=uid&uid=eq.${uid}`) : Promise.resolve([]),
+  ]);
+  if(gen !== STK_GEN) return 'stale';
+  if(apprR.status === 'fulfilled'){ S.p33 = true; S.isApprover = apprR.value.length > 0; S.apprKnown = true; }
+  if(mapsR.status === 'rejected'){
+    // ⚠ only a MISSING table (pre-paste) falls back to today's page — any other failure
+    // is loud (a timeout on warehouse_maps is not «this store has no stacks»)
+    if(p33Missing(mapsR.reason)){ S.stk = null; S.p33 = false; S.isApprover = false; writeStkCache([]); return 'none'; }
+    throw mapsR.reason;
+  }
+  S.p33 = true;
+  if(apprR.status === 'rejected') throw apprR.reason;
+  const maps = (mapsR.value || []).filter((m)=> S.stores.includes(m.store) && !AU.isHomeStore(m.store));
+  writeStkCache(maps.map((m)=> m.store));
+  if(!maps.length){ S.stk = null; return 'none'; }
+  const stores = maps.map((m)=> m.store), IN = inList(stores), today = AU.damascusDay();
+  // counts before a warehouse's newest baseline never matter to the rotation; 180 days
+  // covers every class's due interval three times over — one parallel read, not a chain
+  const floor = new Date(Date.now() - 180*86400000).toISOString();
+  const cut30 = new Date(Date.now() - 30*86400000).toISOString();
+  const quiet = (p) => p.catch(()=> null);     // a failure here only hides a badge
+  const [stacks, sitems, bases, cyc, flags, counts, led, removed] = await Promise.all([
+    restAll(`warehouse_stacks?select=*&store=${IN}&order=stack_no`),
+    restAll(`stack_items?select=store,stack_no,code&store=${IN}`),
+    restAll(`warehouse_baselines?select=store,at,kind,by_name,session_id&store=${IN}&order=at.desc`),
+    restAll(`cycle_days?select=*&store=${IN}&day=eq.${today}`),
+    restAll(`stack_flags?select=*&store=${IN}&resolved_at=is.null&order=created_at.desc`),
+    restAll(`stock_counts?select=id,code,store,counted_at,variance,recount,held,resolution_kind&store=${IN}&counted_at=gte.${enc(floor)}&order=counted_at.desc`),
+    S.isApprover ? quiet(restAll(`stock_ledger?select=store,state&store=${IN}&state=in.(to_approve,held)`)) : Promise.resolve(null),
+    // W6 (round 3): every SKU that left a stack in the last 30 days — the server writes the
+    // log itself (a closed stack_flags row, kind 'removed'), so EVERY device can keep that
+    // item's stock blind to a counter, not only the tablet that tapped «شيل»
+    restAll(`stack_flags?select=store,stack_no,code,created_at&store=${IN}&kind=eq.removed&created_at=gte.${enc(cut30)}&order=created_at.desc`),
+  ]);
+  if(gen !== STK_GEN) return 'stale';
+  const base = new Map();
+  for(const b of bases) if(!base.has(b.store)) base.set(b.store, b);
+  const K = { maps:new Map(maps.map((m)=>[m.store,m])), rows:new Map(), idx:new Map(), sitems, base,
+              cycle:new Map(), cycleErr:new Map(), cycleBusy:new Map(), cycleGen:new Map(), flags, counts,
+              removed: removed || [], plan:new Map(), ledN:new Map() };
+  for(const st of stores) K.rows.set(st, new Map());
+  for(const r of stacks) if(K.rows.has(r.store)) K.rows.get(r.store).set(Number(r.stack_no), r);
+  for(const st of stores) K.idx.set(st, AU.stackIndex(sitems, st));
+  for(const c of cyc) K.cycle.set(c.store, c);
+  for(const r of led || []) K.ledN.set(r.store, (K.ledN.get(r.store) || 0) + 1);
+  S.stk = K;
+  TODAY_AT = Date.now();                       // this read IS today's snapshot (W7)
+  return 'ok';
+}
+// the stacks landed (or failed): refresh what depends on them, WITHOUT pulling a
+// screen out from under someone mid-count
+const REFRESH = new Set(['home', 'store', 'problems', 'problist', 'stkscope']);
+// the day's queue is computed AFTER first paint — never before the home screen is up
+function kickCycles(){
+  if(S.stk && S.screen !== 'boot') for(const st of S.stk.maps.keys()) if(!S.stk.cycle.has(st)) cycleBg(st);
+}
+function stacksLanded(){
+  applyOpenVar();
+  kickCycles();
+  if(S.screen === 'stkwait'){
+    if(isStackStore(S.store)) return routeStack(S.store, false);
+    if(!stackBlocked(S.store)) return routeRack(S.store, false);
+    return render();
+  }
+  // a scope screen opened for a store the device did not yet know was stacked
+  if(['scope','rack','brand','ready'].includes(S.screen) && isStackStore(S.store)){
+    S.stack = ['home', 'store']; S.mode = 'count'; return go('stkscope', false);
+  }
+  // ⚠ W1 (round 3): a RACK count already running there STOPS — loud, what was typed kept as a
+  // note, the rack save never runs. The rack map moves to the stack mapping.
+  if(S.screen === 'count' && isStackStore(S.store)) return rackStop(S.store, S.vals);
+  if(S.screen === 'recount' && isStackStore(S.store)) return rackStop(S.store, S.reVals);
+  if(S.screen === 'map' && isStackStore(S.store)){ PAD = ''; S.mode = 'map'; S.stack = ['home', 'store']; return go('smap', false); }
+  if(REFRESH.has(S.screen)) render();
+}
+// the home screen's line about the stack loads: quiet while loading (a placeholder door
+// per store the device already knows), LOUD with a retry when they failed
+function stkHomeState(){
+  const mine = [...knownStackStores()].filter((s)=> S.stores.includes(s));
+  if(S.stkState === 'loading') return mine.map((st)=> `<button class="big calm" disabled><span class="ic">🌅</span>
+      <span class="tx">${t('cyc_door')}<span class="sub">${bdi(st)}</span><span class="sub">${t('stk_loading')}</span></span></button>`).join('');
+  // a device that never loaded a map list does not know it has none — so it says so too
+  if(S.stkState === 'err' && (mine.length || readStkCache() === null)) return `<div class="note bad">${t('stk_err')}: ${bdi(S.stkErr)}</div>
+      <button class="big" id="stkretry"><span class="ic">🔄</span><span class="tx">${t('retry')}<span class="sub">${t('stk_retry_sub')}</span></span></button>`;
+  return '';
+}
+function wireStkRetry(){
+  const r = document.getElementById('stkretry');
+  if(r) r.onclick = ()=>{ startStacks(); render(); };
+  document.querySelectorAll('[data-cycretry]').forEach((b)=>{
+    b.onclick = ()=>{ const st = b.getAttribute('data-cycretry'); if(!S.stk) return; S.stk.cycleErr.delete(st); cycleBg(st); render(); };
+  });
+}
+// «لحظة»: a store known to be stacked, while the stacks load — or failed to
+SCREENS.stkwait = {
+  back:true, title:()=> esc(S.store),
+  html(){
+    const err = S.stkState === 'err';
+    return `<div class="doneicon">${err ? '⚠️' : '⏳'}</div>
+      <p class="donebig">${t('stk_wait_ask')}</p>
+      <p class="donesub">${bdi(S.store)}</p>
+      ${err ? `<div class="note bad">${t('stk_err')}: ${bdi(S.stkErr)}</div>
+        <div class="note warn">${t('stk_blocked')}</div>
+        <button class="big hero" id="stkretry">🔄 ${t('retry')}</button>`
+        : `<div class="note">${t('stk_wait_why')}</div>`}`;
+  },
+  wire(){ wireStkRetry(); },
+};
+function reindexStore(store){ S.stk.idx.set(store, AU.stackIndex(S.stk.sitems, store)); }
+
+/* ── the day's queue: first device computes and inserts, everyone reads the same row ── */
+// server-fresh context around one warehouse: live slips, their newest recorded pick
+// lists, the newest eligible counts + posts (→ the open gaps), dispatched transfers
+async function stackCtx(store, codes, mirrorAt, withTransfers){
+  const cols = 'id,no,kind,status,flag_reason,store,customer,items,processed_at,created_at';
+  const [live, done] = await Promise.all([
+    rest(`withdrawals?select=${cols}&status=in.(pending,flagged)&limit=1000`),
+    mirrorAt ? rest(`withdrawals?select=${cols}&status=eq.done&processed_at=gt.${enc(mirrorAt)}&limit=1000`) : Promise.resolve([]),
+  ]);
+  const slips = [...(live || []), ...(done || [])];
+  const picks = new Map();
+  const ids = [...new Set(slips.map((w)=> w.id).filter(Boolean))];
+  for(let i=0;i<ids.length;i+=100){
+    const rows = await rest(`pick_lists?select=slip_id,version,plan&slip_id=in.(${ids.slice(i,i+100).map(enc).join(',')})&order=version.desc`) || [];
+    for(const r of rows) if(!picks.has(r.slip_id)) picks.set(r.slip_id, r.plan || []);
+  }
+  const cq = codes && codes.length === 1 ? `&code=eq.${enc(codes[0])}` : '';
+  const [positions, posts] = await Promise.all([
+    restAll(`stock_positions?select=store,code,count_id,mirror_at,counted_at,gap,to_post,resolution_kind&store=eq.${enc(store)}${cq}`),
+    restAll(`stock_adjust_posts?select=store,code,amount,posted_at&store=eq.${enc(store)}${cq}`),
+  ]);
+  let transfers = [];
+  if(withTransfers){
+    // ⚠ a failed read here could let a sale in flight read as a loss — so it FAILS
+    // the save (loud, with a retry) unless the table simply does not exist
+    try{ transfers = await rest('transfers?select=no,status,posted_at,items,items_sent&status=eq.dispatched&limit=500') || []; }
+    catch(e){ if(!AU.TABLE_MISSING.test(String(e.message))) throw e; }
+  }
+  return { slips, picks, positions, posts, transfers };
+}
+async function computeCycle(store){
+  const K = S.stk, ix = K.idx.get(store), map = K.maps.get(store);
+  const codes = [...ix.byCode.keys()];
+  const byItem = new Map(S.items.map((i)=>[i.code,i]));
+  const mirrorAt = mirrorOf(S.items);
+  const ctx = await stackCtx(store, codes, mirrorAt, false);
+  const pending = AU.pendingMovementsPicked(ctx.slips, store, mirrorAt, ctx.picks);
+  const rem = AU.remainingGaps(ctx.positions, ctx.posts, mirrorAt);
+  // a stack a picker is still working (an open printed sheet whose slip is not typed yet)
+  const busy = new Set();
+  for(const w of ctx.slips){
+    if(!w || w.status === 'voided' || w.kind === 'quote' || typedSlip(w)) continue;
+    for(const p of ctx.picks.get(w.id) || []){
+      if(p.store !== store) continue;
+      for(const n of [...(p.stacks || []), ...AU.stacksOfCode(ix.byCode, p.code)]) busy.add(Number(n));
+    }
+  }
+  const flagged = (k) => new Set(K.flags.filter((f)=> f.store === store && f.kind === k).map((f)=> Number(f.stack_no)));
+  const b = K.base.get(store);
+  return AU.cycleSelect({ byStack:ix.byStack, lastByCode:AU.lastCountedByCode(K.counts, store),
+    baselineAt: b ? b.at : null, abc: AU.storeAbc(S.items, store, codes),
+    workingOf: (c)=> AU.workingQty(byItem.get(c) || { code:c, stock_by_store:{} }, store, pending, rem),
+    today: AU.damascusDay(), perDay: Number(map.cycle_per_day) || 8, due: map.due_days,
+    busyStacks: busy, notHere: flagged('not_here'), shortStacks: flagged('short'),
+    recountCodes: unverifiedCodes(store) });
+}
+// D4 (round 2): codes whose NEWEST count in this warehouse found a difference and was
+// never recounted (a walk abandoned, a tablet that died) — they come back FIRST, which
+// is what «ما انعادت — بترجع أول شي بعدّة الصبح» promises. A row older than the newest
+// baseline no longer matters.
+function unverifiedCodes(store){
+  const K = S.stk, ix = K.idx.get(store), b = K.base.get(store), bAt = b ? Date.parse(b.at) : -Infinity;
+  const newest = new Map();
+  for(const r of K.counts){
+    if(r.store !== store) continue;
+    const p = newest.get(r.code);
+    if(!p || Date.parse(r.counted_at) > Date.parse(p.counted_at)) newest.set(r.code, r);
+  }
+  const out = new Set();
+  for(const [c, r] of newest) if(ix.byCode.has(c) && AU.isOff(r.variance) && r.recount == null
+    && Date.parse(r.counted_at) >= bAt) out.add(c);
+  return out;
+}
+// one computation per warehouse at a time, in the background; its reason is kept.
+// ⚠ W4 (round 3): it RACES STK_TIMEOUT. A hung read inside it (the withdrawals, the pick
+// lists, the positions, the cycle_days POST/GET) used to leave «عم نحضّر عدّة اليوم…» on
+// screen for ever — no note, no retry. Now the door turns loud with its retry after 8 s;
+// the retry starts a NEW generation, and a late answer from the old one still lands (a real
+// row is the server's truth whichever attempt read it) and clears the note.
+function cycleBg(store){
+  const K = S.stk; if(!K) return Promise.resolve(null);
+  if(K.cycleBusy.has(store)) return K.cycleBusy.get(store);
+  const gen = (K.cycleGen.get(store) || 0) + 1; K.cycleGen.set(store, gen);
+  const repaint = ()=>{ if(S.stk === K && REFRESH.has(S.screen)) render(); };
+  let timer = null, late = false;
+  const work = ensureCycle(store, gen).catch(()=> null);
+  const slow = new Promise((res)=>{ timer = setTimeout(()=>{
+    late = true;
+    if(K.cycleGen.get(store) === gen && !K.cycle.has(store)) K.cycleErr.set(store, t('cyc_slow'));
+    res(null);
+  }, STK_TIMEOUT); });
+  const p = Promise.race([work, slow]).finally(()=>{
+    clearTimeout(timer);
+    if(K.cycleBusy.get(store) === p) K.cycleBusy.delete(store);
+    repaint();
+  });
+  K.cycleBusy.set(store, p);
+  work.then(()=>{ if(late) repaint(); });
+  return p;
+}
+async function ensureCycle(store, gen){
+  const K = S.stk, today = AU.damascusDay(), u = me();
+  // only the NEWEST attempt may write a failure (an old one that fails late must not paint
+  // its error over a retry that is still running)
+  const latest = () => gen == null || K.cycleGen.get(store) === gen;
+  let sel;
+  // ⚠ a throw here used to escape before cycleErr was set — after «أعد عدّة اليوم» the
+  // home door then said «ما في كومات لعدّة اليوم» over a DELETED day (round-2 X5)
+  try{ sel = await computeCycle(store); }
+  catch(e){ if(latest()){ K.cycle.delete(store); K.cycleErr.set(store, errText(e) || t('err')); } throw e; }
+  let err = '';
+  try{
+    await rest('cycle_days?on_conflict=store,day', { method:'POST',
+      headers:{ Prefer:'resolution=ignore-duplicates,return=minimal' },
+      body: JSON.stringify([{ store, day:today, stacks:sel.stacks, reasons:sel.reasons,
+                              created_by:u.id, created_by_name:u.name }]) });
+  }catch(e){ err = errText(e); }
+  // FIRST WRITER WINS: whatever the server holds now is the day's list, for everyone
+  let row = null;
+  try{ row = ((await rest(`cycle_days?select=*&store=eq.${enc(store)}&day=eq.${today}`)) || [])[0] || null; }
+  catch(e){ err = err || errText(e); }
+  if(!row){
+    if(!latest()) return null;
+    row = { store, day:today, stacks:sel.stacks, reasons:sel.reasons, local:true }; K.cycleErr.set(store, err || '—');
+  }
+  else K.cycleErr.delete(store);
+  K.cycle.set(store, row);
+  return row;
+}
+
+// codes with a FINAL count today (a first pass that matched, or a completed recount),
+// or reported «not on this stack» today — the counter's job on them is done
+function doneTodayCodes(store){
+  const K = S.stk, today = AU.damascusDay(), done = new Set();
+  for(const r of K.counts) if(r.store === store && dayOf(r.counted_at) === today
+    && (!AU.isOff(r.variance) || r.recount != null || (!RECOUNT_HELD && r.held))) done.add(r.code);
+  for(const f of K.flags) if(f.store === store && f.kind === 'not_here' && f.code && dayOf(f.created_at) === today) done.add(f.code);
+  return done;
+}
+// ⚠ W5 (round 3): the door counts the SAME stacks the walk visits (walkStacks) — and an
+// emptied stack is never «done». every() over an empty list is true, so taking a stack's
+// item off («شيل») used to tick it off uncounted: «1 من 2» over a walk of one, and
+// «خلصت ✓» with the item never counted. A stack of today's list emptied TODAY (the server's
+// 'removed' log, or this device's own «شيل») is named instead (goneToday).
+function cycleProgress(store){
+  const K = S.stk, row = K.cycle.get(store);
+  if(!row) return { n:0, m:0, gone:[] };
+  const ix = K.idx.get(store), done = doneTodayCodes(store);
+  const nos = walkStacks(store, { kind:'cycle' });
+  return { n: nos.filter((s)=> { const cs = ix.byStack.get(s) || []; return cs.length > 0 && cs.every((c)=> done.has(c)); }).length,
+           m: nos.length, gone: goneToday(store) };
+}
+function goneToday(store){
+  const K = S.stk, row = K.cycle.get(store), ix = K.idx.get(store), today = AU.damascusDay();
+  if(!row) return [];
+  return [...new Set((row.stacks || []).map(Number))].filter((n)=> !(ix.byStack.get(n) || []).length
+    && (K.removed || []).some((f)=> f.store === store && Number(f.stack_no) === n && dayOf(f.created_at) === today)).sort((a, b)=> a - b);
+}
+const goneHtml = (gone) => gone.length ? `<div class="note warn">${t(gone.length > 1 ? 'cyc_gone_n' : 'cyc_gone', { n: stackList(gone) })}</div>` : '';
+
+/* ── the walk list: stacks in number order; an SKU on two stacks brings its group ── */
+function groupClose(ix, nos){
+  const set = new Set(nos.map(Number));
+  for(const g of AU.stackGroups(ix.byStack)) if(g.some((n)=> set.has(n))) g.forEach((n)=> set.add(n));
+  return [...set].sort((a,b)=> a - b);
+}
+function walkStacks(store, scope){
+  const K = S.stk, ix = K.idx.get(store), rows = K.rows.get(store);
+  let nos = [];
+  if(scope.kind === 'cycle') nos = ((K.cycle.get(store) || {}).stacks || []).map(Number);
+  else if(scope.kind === 'baseline') nos = [...ix.byStack.keys()];
+  else if(scope.kind === 'stack') nos = [Number(scope.stack)];
+  else if(scope.kind === 'zone') nos = [...rows.values()].filter((r)=> r.zone === scope.zone).map((r)=> Number(r.stack_no));
+  return groupClose(ix, nos.filter((n)=> (ix.byStack.get(n) || []).length));
+}
+// ⚠ the list keeps the day's FULL set (so «2 / 4» means the same before and after a
+// resume); what another device already finished today is SKIPPED, not removed
+function walkList(store, scope){
+  const K = S.stk;
+  return AU.stackCountList(S.items, K.idx.get(store).byStack, walkStacks(store, scope), [...K.rows.get(store).values()]);
+}
+const doneFor = (store, scope) => scope.kind === 'cycle' ? doneTodayCodes(store) : new Set();
+
+/* ── the walk state + its draft (v2, keyed `${stack}|${code}`) ── */
+function saveWDraft(){
+  const W = S.walk; if(!W) return;
+  try{ localStorage.setItem(STK_DRAFT(), JSON.stringify({ store:W.store, scope:W.scope, sid:W.sid, sAt:W.sAt,
+    vals:W.vals, saved:W.saved, skip:W.skip, flagged:W.flagged, re:W.re, reQ:W.reQ || [], pend:W.pend || {},
+    at:Date.now() })); }catch{}
+}
+function clearWDraft(){ try{ localStorage.removeItem(STK_DRAFT()); }catch{} }
+function readWDraft(){
+  try{
+    const d = JSON.parse(localStorage.getItem(STK_DRAFT()) || 'null');
+    if(d && d.store && d.sid && d.scope && isStackStore(d.store)){
+      // a morning list belongs to its morning — yesterday's half walk is not today's
+      if(d.scope.kind === 'cycle' && d.scope.day !== AU.damascusDay()){ clearWDraft(); return null; }
+      return d;
+    }
+  }catch{}
+  return null;
+}
+const wOpen = (e) => { const W = S.walk; return !W.skip.includes(e.code) && !W.saved[e.code] && !W.done.has(e.code); };
+const wPending = (e) => wOpen(e) && !S.walk.vals[e.key];
+function wSkipAhead(){ const W = S.walk; while(W.pos < W.list.length && !wPending(W.list[W.pos])) W.pos++; }
+function wStacks(){ return [...new Set(S.walk.list.map((e)=> e.stack))]; }
+function wCur(){
+  const W = S.walk; if(!W) return null;
+  if(W.re){
+    const n = W.re.stacks[W.re.i];
+    const meta = W.list.find((e)=> e.code === W.re.code) || itemOf(W.re.code);
+    return { stack:n, e:Object.assign({}, meta, { stack:n, code:W.re.code, key:`${n}|${W.re.code}`, part:null }), phase:W.re.phase, re:true };
+  }
+  const e = W.list[W.pos];
+  return e ? { stack:e.stack, e, phase:W.phase, re:false } : null;
+}
+
+// a walk in words, for the «leave it?» question (plain text — it goes into confirm())
+function scopeLabel(store, sc){
+  const w = sc.kind === 'cycle' ? t('cyc_door') : sc.kind === 'baseline' ? t('sscope_all')
+    : sc.kind === 'stack' ? `${t('stk')} ${sc.stack}` : sc.kind === 'zone' ? sc.zone : '';
+  return `${w} — ${stackLabel(store)}`;
+}
+async function startWalk(store, scope){
+  // ⚠ ONE draft slot per login (round-2 X2). The SAME walk resumes; a different one asks
+  // first, and an abandoned walk's session is CLOSED — never left open for ever, and
+  // never overwritten with its answers and its pending recount in silence.
+  const d = readWDraft();
+  if(d){
+    if(d.store === store && AU.scopeKey(d.scope) === AU.scopeKey(scope)){ resumeWalk(); return; }
+    if(!confirm(t('walk_abandon', { what: scopeLabel(d.store, d.scope) }))){ if(S.screen === 'boot'){ S.stack = []; go('home', false); } return; }
+    const sv = d.saved || {}, codes = Object.keys(sv);
+    try{ await closeSession(d.sid, codes.length, codes.filter((c)=> sv[c] && sv[c].off).length); }
+    catch(e){ console.warn('closing the abandoned walk:', errText(e)); }
+    clearWDraft();
+  }
+  const list = walkList(store, scope), done = doneFor(store, scope);
+  S.pendingStart = { store, scope };
+  if(!list.some((e)=> !done.has(e.code))){ S.walkDone = { n:0, flagged:0, base:null }; go('walkdone', false); return; }
+  go('saving', false);
+  try{
+    const u = me();
+    const sess = ((await rest('stock_count_sessions', { method:'POST', headers:{ Prefer:'return=representation' },
+      body: JSON.stringify([{ store, scope:AU.scopeKey(scope), started_by:u.id, started_by_name:u.name,
+        synced_at:mirrorOf(S.items), ...(S.branch ? { branch_id:S.branch.id } : {}) }]) })) || [])[0];
+    if(!sess) throw new Error('no session came back');
+    S.walk = { store, scope, sid:sess.id, sAt:sess.started_at || new Date().toISOString(), list, pos:0, phase:'go',
+               vals:{}, saved:{}, skip:[], flagged:0, re:null, reQ:[], pend:{}, pendingOp:null, done };
+    S.pendingStart = null;
+    wSkipAhead(); saveWDraft(); planFor(store); PAD = ''; S.stack = []; go('walk', false);
+  }catch(e){ go('walkerr', false, stkErrMsg(e)); }
+}
+// ⚠ ROUND 2 (X1/X7/G1): a count typed but not saved is NEVER dropped. On «كمّل» the
+// server says what this session already holds (a save whose answer was lost, or a
+// tablet that died between the POST and the draft) — those rows are ADOPTED, and one
+// with a difference and no recount is recounted; whatever was answered and is still
+// not on the server is saved before the walk moves on. wFinish checks the same.
+async function resumeWalk(){
+  const d = readWDraft(); if(!d) return;
+  S.walk = { store:d.store, scope:d.scope, sid:d.sid, sAt:d.sAt, list:walkList(d.store, d.scope), pos:0, phase:'go',
+             vals:d.vals || {}, saved:d.saved || {}, skip:d.skip || [], flagged:d.flagged || 0,
+             re:d.re ? Object.assign({}, d.re, { phase:'go', adopted:true }) : null,
+             reQ:d.reQ || [], pend:d.pend || {}, pendingOp:null, done:new Set() };
+  const W = S.walk;
+  planFor(d.store); PAD = ''; S.stack = [];
+  go('saving', false);
+  let rows;
+  try{ rows = (await rest(`stock_counts?select=id,code,variance,recount,held,counted_at&session_id=eq.${enc(d.sid)}`)) || []; }
+  catch(e){ W.pendingOp = { kind:'resume' }; go('walkerr', false, stkErrMsg(e)); return; }
+  wAdoptRows(rows);
+  // what THIS walk saved is in W.saved; what another device finished today is skipped
+  for(const c of doneFor(d.store, d.scope)) if(!W.saved[c]) W.done.add(c);
+  saveWDraft();
+  for(const u of wUnsaved()){
+    if(!(await wSave(u.entry, u.at, true))) return;
+    if(W.re) break;
+  }
+  wSkipAhead();
+  if(!W.re && W.pos >= W.list.length){ wFinish(); return; }
+  go('walk', false);
+}
+// the session's rows on the server → this walk's saved answers (newest row per code)
+function wAdoptRows(rows){
+  const W = S.walk, newest = new Map();
+  for(const r of rows) { const p = newest.get(r.code); if(!p || Date.parse(r.counted_at) > Date.parse(p.counted_at)) newest.set(r.code, r); }
+  for(const r of newest.values()){
+    W.saved[r.code] = { id:r.id, off:AU.isOff(r.variance) };
+    if(W.pend[r.code] === r.id) delete W.pend[r.code];
+    const loc = S.stk.counts.find((x)=> x.id === r.id);
+    if(loc) Object.assign(loc, { variance:r.variance, recount:r.recount, held:!!r.held });
+    else S.stk.counts.unshift({ id:r.id, code:r.code, store:W.store, counted_at:r.counted_at, variance:r.variance, recount:r.recount, held:!!r.held });
+  }
+  // the draft's own pending recount — dropped if the server already holds it (the guard
+  // refuses a second recount for ever)
+  if(W.re){ const sr = newest.get(W.re.code); if(sr && (sr.id !== W.re.id || sr.recount != null || !AU.isOff(sr.variance))) W.re = null; }
+  for(const r of newest.values()){
+    if(!AU.isOff(r.variance) || r.recount != null || (!RECOUNT_HELD && r.held)) continue;
+    if((W.re && W.re.code === r.code) || W.reQ.some((q)=> q.code === r.code)) continue;
+    W.reQ.push({ code:r.code, id:r.id });
+  }
+  if(!W.re && W.reQ.length) W.re = mkRe(W.reQ.shift());
+}
+// a blind recount detached from the walk's position (opened on resume or at the end):
+// every stack of the SKU, in number order, starting with «روح عالكومة»
+function mkRe(q){
+  const W = S.walk, nos = AU.stacksOfCode(S.stk.idx.get(W.store).byCode, q.code);
+  return { code:q.code, id:q.id, stacks: nos.length ? nos : [W.list.find((e)=> e.code === q.code)?.stack].filter((n)=> n != null),
+           i:0, phase:'go', vals:{}, adopted:true };
+}
+// codes this walk has a COMPLETE answer for (every stack of the SKU) but no saved row
+function wUnsaved(){
+  const W = S.walk, ix = S.stk.idx.get(W.store), out = [], seen = new Set();
+  for(const e of W.list){
+    if(seen.has(e.code)) continue; seen.add(e.code);
+    if(W.saved[e.code] || W.skip.includes(e.code) || W.done.has(e.code)) continue;
+    const entry = AU.stackEntryFor(e.code, W.vals, ix.byCode);
+    if(!entry) continue;
+    const nos = AU.stacksOfCode(ix.byCode, e.code);
+    out.push({ entry, at: nos.length ? nos[nos.length - 1] : e.stack });
+  }
+  return out;
+}
+// a fresh uuid for a count row: a retry of the SAME row hits its primary key, never a
+// second row (round-2 X7: a lost answer + «حاول مرة تانية» wrote the count twice, and
+// the first copy stayed «unverified» for ever)
+function newId(){
+  try{ if(crypto.randomUUID) return crypto.randomUUID(); }catch{}
+  const b = crypto.getRandomValues(new Uint8Array(16)); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+  const h = [...b].map((x)=> x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
+
+async function wAnswer(val){
+  const W = S.walk, c = wCur(); if(!c) return;
+  PAD = '';
+  if(W.re){
+    W.re.vals[c.stack] = val;
+    if(W.re.i + 1 < W.re.stacks.length){ W.re.i++; W.re.phase = 'go'; saveWDraft(); go('walk', false); return; }
+    saveWDraft(); await wRecountSave(); return;
+  }
+  W.vals[c.e.key] = val; saveWDraft();
+  const entry = AU.stackEntryFor(c.e.code, W.vals, S.stk.idx.get(W.store).byCode);
+  // ⚠ SAVED THE MOMENT THE LAST STACK OF THE SKU IS ANSWERED — half a total compared
+  // with Al-Ameen's whole-warehouse figure is a false shortage (stackEntryFor says null)
+  if(entry){
+    if(!(await wSave(entry, c.stack))) return;
+    if(W.re){ go('walk', false); return; }
+  }
+  wNext(c.stack);
+}
+function wNext(from){
+  const W = S.walk;
+  W.pos++; wSkipAhead();
+  if(W.pos >= W.list.length){ wFinish(); return; }
+  W.phase = W.list[W.pos].stack === from ? 'count' : 'go';
+  saveWDraft(); go('walk', false);
+}
+async function wSave(entry, atStack, detached){
+  const W = S.walk, store = W.store, u = me();
+  go('saving', false);
+  // the row's id is made HERE and kept in the draft until the server has the row
+  const retry = !!W.pend[entry.code];
+  const id = W.pend[entry.code] || newId();
+  W.pend[entry.code] = id; saveWDraft();
+  const byId = async () => ((await rest(`stock_counts?select=*&id=eq.${enc(id)}`)) || [])[0] || null;
+  try{
+    // a retry first asks whether the server already committed it (the answer was lost)
+    let saved = retry ? await byId() : null;
+    if(!saved){
+      // server-fresh at SAVE time, never at screen load (the Aug-9 cashbox lesson)
+      const it = ((await rest(`dashboard_items?select=code,qty,stock_by_store,synced_at&code=eq.${enc(entry.code)}`)) || [])[0]
+        || { code:entry.code, stock_by_store:{} };
+      const mirrorAt = it.synced_at || null;
+      const ctx = await stackCtx(store, [entry.code], mirrorAt, true);
+      const pending = AU.pendingMovementsPicked(ctx.slips, store, mirrorAt, ctx.picks);
+      const rem = AU.remainingGaps(ctx.positions, ctx.posts, mirrorAt);
+      const held = AU.inflightFor(ctx.slips, ctx.transfers, store, entry.code, mirrorAt, ctx.picks, isHubStore(store));
+      const row = AU.buildStackCountRow({ sessionId:W.sid, store, entry, item:it, pending, rem, mirrorAt,
+        uid:u.id, authorName:u.name, held });
+      try{
+        saved = ((await rest('stock_counts', { method:'POST', headers:{ Prefer:'return=representation' },
+          body: JSON.stringify([Object.assign({ id }, row)]) })) || [])[0];
+      }catch(e){
+        // the primary key says it is already there: that IS the save
+        if(!/23505|duplicate key/i.test(String(e.message))) throw e;
+        saved = await byId();
+      }
+    }
+    if(!saved) throw new Error('no row came back');
+    delete W.pend[entry.code];
+    W.saved[entry.code] = { id:saved.id, off:AU.isOff(saved.variance) };
+    const loc = S.stk.counts.find((x)=> x.id === saved.id);
+    if(loc) Object.assign(loc, { variance:saved.variance, recount:saved.recount ?? null, held:!!saved.held });
+    else S.stk.counts.unshift({ id:saved.id, code:entry.code, store, counted_at:saved.counted_at || new Date().toISOString(),
+      variance:saved.variance, recount:saved.recount ?? null, held:!!saved.held });
+    if(AU.isOff(saved.variance) && saved.recount == null && (RECOUNT_HELD || !saved.held)){
+      if(detached) W.re = mkRe({ code:entry.code, id:saved.id });
+      else {
+        // an IMMEDIATE blind recount of every stack the SKU sits on, starting where you stand
+        const others = AU.stacksOfCode(S.stk.idx.get(store).byCode, entry.code).filter((n)=> n !== atStack);
+        W.re = { code:entry.code, id:saved.id, stacks:[atStack, ...others], i:0, phase:'count', vals:{} };
+      }
+    }
+    saveWDraft();
+    return true;
+  }catch(e){
+    W.pendingOp = { kind:'save', code:entry.code, at:atStack, detached:!!detached }; saveWDraft();
+    go('walkerr', false, stkErrMsg(e)); return false;
+  }
+}
+async function wRecountSave(){
+  const W = S.walk, R = W.re;
+  go('saving', false);
+  // ⚠ W3 (round 3): the LOST-ANSWER shape, for the recount — the server committed the PATCH
+  // and the answer never came back. The guard refuses a second recount for ever, so a blind
+  // re-send looped on «العدّة التانية انحفظت» with no way out. A retry READS THE ROW first,
+  // and so does a refusal: a recount the server already holds is adopted as the success.
+  const readBack = async ()=> ((await rest(`stock_counts?select=id,recount,variance&id=eq.${enc(R.id)}`)) || [])[0] || null;
+  try{
+    const recount_stacks = {}; let sum = 0;
+    for(const n of R.stacks){ const v = R.vals[n]; recount_stacks[n] = v.e ? { q:AU.r3(v.q), e:v.e } : { q:AU.r3(v.q) }; sum += Number(v.q); }
+    let back = null;
+    if(R.sent){ const srv = await readBack(); if(srv && srv.recount != null) back = [srv]; }
+    if(!back){
+      R.sent = true; saveWDraft();
+      try{
+        back = (await rest(`stock_counts?id=eq.${enc(R.id)}`, { method:'PATCH', headers:{ Prefer:'return=representation' },
+          body: JSON.stringify({ recount:AU.r3(sum), recount_stacks }) })) || [];
+      }catch(e){
+        if(!/P0001|انحفظت/.test(String(e.message || e))) throw e;
+        const srv = await readBack();
+        if(!srv || srv.recount == null) throw e;
+        back = [srv];
+      }
+    }
+    // ⚠ an update RLS silently refused comes back as ZERO rows — that is a failure, not a success
+    if(!back.length) throw new Error('recount not saved (0 rows)');
+    const rc = back[0].recount != null ? Number(back[0].recount) : AU.r3(sum);
+    W.saved[R.code] = { id:R.id, off:AU.isOff(back[0].variance) };
+    const loc = S.stk.counts.find((r)=> r.id === R.id); if(loc){ loc.recount = rc; loc.variance = back[0].variance; }
+    const last = R.stacks[R.stacks.length - 1];
+    W.re = W.reQ.length ? mkRe(W.reQ.shift()) : null;
+    if(W.re){ saveWDraft(); go('walk', false); return; }
+    // ⚠ a recount opened on resume or at the end is NOT the entry at W.pos — stepping past
+    // it (wNext) would skip an SKU nobody has answered yet
+    if(R.adopted){ wSkipAhead(); saveWDraft(); if(W.pos >= W.list.length){ wFinish(); return; } W.phase = 'go'; go('walk', false); return; }
+    saveWDraft(); wNext(last);
+  }catch(e){ W.pendingOp = { kind:'recount' }; saveWDraft(); go('walkerr', false, stkErrMsg(e)); }
+}
+async function wNotHere(){
+  const W = S.walk, c = wCur(), u = me();
+  go('saving', false);
+  try{
+    const row = { store:W.store, stack_no:c.stack, code:c.e.code, kind:'not_here', by_name:u.name, created_by:u.id };
+    const back = ((await rest('stack_flags', { method:'POST', headers:{ Prefer:'return=representation' },
+      body: JSON.stringify([row]) })) || [])[0] || Object.assign({ created_at:new Date().toISOString() }, row);
+    S.stk.flags.unshift(back);
+    // NO count for this SKU, and its other stacks in this walk are skipped too
+    W.skip.push(c.e.code); W.flagged++;
+    for(const k of Object.keys(W.vals)) if(k.endsWith('|' + c.e.code)) delete W.vals[k];
+    saveWDraft(); wNext(c.stack);
+  }catch(e){ W.pendingOp = { kind:'nothere' }; go('walkerr', false, stkErrMsg(e)); }
+}
+async function wFinish(){
+  const W = S.walk;
+  for(const u of wUnsaved()){
+    if(!(await wSave(u.entry, u.at, true))) return;
+    if(W.re) break;
+  }
+  if(W.re){ saveWDraft(); go('walk', false); return; }
+  go('saving', false);
+  try{
+    const codes = Object.keys(W.saved);
+    await closeSession(W.sid, codes.length, codes.filter((c)=> W.saved[c].off).length);
+    let base = null;
+    if(W.scope.kind === 'baseline'){
+      // «جرد أساسي»: a baseline only when EVERY coded stack of the warehouse was counted
+      const all = [...S.stk.idx.get(W.store).byCode.keys()].every((c)=> W.saved[c]);
+      if(all){
+        const u = me(), b = { store:W.store, at:W.sAt, kind:'count', session_id:W.sid, by_name:u.name };
+        await rest('warehouse_baselines', { method:'POST', headers:{ Prefer:'return=minimal' }, body: JSON.stringify([b]) });
+        S.stk.base.set(W.store, b); base = 'ok';
+      } else base = 'no';
+    }
+    S.walkDone = { n:codes.length, flagged:W.flagged, base, store:W.store };
+    clearWDraft(); S.walk = null; go('walkdone', false);
+  }catch(e){ W.pendingOp = { kind:'finish' }; go('walkerr', false, stkErrMsg(e)); }
+}
+async function wRetry(){
+  const W = S.walk;
+  if(!W){ if(S.pendingStart) return startWalk(S.pendingStart.store, S.pendingStart.scope); S.stack = []; return go('home', false); }
+  const op = W.pendingOp; W.pendingOp = null;
+  if(!op) return go('walk', false);
+  if(op.kind === 'resume') return resumeWalk();
+  if(op.kind === 'save'){
+    const entry = AU.stackEntryFor(op.code, W.vals, S.stk.idx.get(W.store).byCode);
+    if(!entry) return go('walk', false);
+    if(!(await wSave(entry, op.at, op.detached))) return;
+    if(W.re) return go('walk', false);
+    if(op.detached){ wSkipAhead(); if(W.pos >= W.list.length) return wFinish(); return go('walk', false); }
+    return wNext(op.at);
+  }
+  if(op.kind === 'recount') return wRecountSave();
+  if(op.kind === 'nothere') return wNotHere();
+  if(op.kind === 'finish') return wFinish();
+}
+
+/* ── the plan image (private bucket) and the mini-map ── */
+function planFor(store){
+  const K = S.stk, map = K && K.maps.get(store), path = map && map.plan_path;
+  if(!path) return Promise.resolve(null);
+  if(K.plan.has(path)) return K.plan.get(path);
+  const p = (async ()=>{
+    const tk = await getToken();
+    const r = await fetch(`${SUPABASE_URL}/storage/v1/object/warehouse-maps/${path.split('/').map(enc).join('/')}`,
+      { headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${tk}` } });
+    if(!r.ok) throw new Error('plan ' + r.status);
+    const url = URL.createObjectURL(await r.blob());
+    await new Promise((res, rej)=>{ const im = new Image(); im.onload = res; im.onerror = ()=> rej(new Error('decode')); im.src = url; });
+    return url;
+  })().catch(()=>{ K.plan.delete(path); return null; });   // a failure is never cached
+  K.plan.set(path, p);
+  return p;
+}
+// the gate formula (DESIGN v2): circle centre = (label centre + dx,dy) × scale, then
+// pushed along the inward normal by max(0, (r+4) − wall_d×scale) — off the wall, onto the floor
+function discAt(row, Wp, Hp, s, r){
+  r = r || WP_R;
+  const lx = row.x * Wp * s, ly = row.y * Hp * s;
+  const dx = Number(row.dx || 0), dy = Number(row.dy || 0);
+  let cx = (row.x * Wp + dx) * s, cy = (row.y * Hp + dy) * s;
+  const push = Math.max(0, (r + 4) - Number(row.wall_d || 0) * s);
+  const nv = { N:[0,-1], S:[0,1], E:[1,0], W:[-1,0] }[row.side] || [0,0];
+  cx += nv[0] * push; cy += nv[1] * push;
+  return { cx, cy, lx, ly, lead: !!(dx || dy) };
+}
+function discSvg(x, y, n, o){
+  o = o || {};
+  const r = o.r || WP_R;
+  const fs = Math.round((String(n).length >= 3 ? 17 : 20) * r / WP_R);
+  return (o.lead ? `<line x1="${x}" y1="${y}" x2="${o.lead.x}" y2="${o.lead.y}" stroke="#1C1813" stroke-width="1"/>
+      <circle cx="${o.lead.x}" cy="${o.lead.y}" r="2.5" fill="#1C1813"/>` : '')
+    + `<circle cx="${x}" cy="${y}" r="${r + 3}" fill="#fff"/>`
+    + `<circle cx="${x}" cy="${y}" r="${r}" fill="#1C1813"/>`
+    + `<text x="${x}" y="${y}" fill="#fff" font-size="${fs}" font-weight="700" text-anchor="middle"
+        dominant-baseline="central" font-family="IBM Plex Sans Arabic, Segoe UI, system-ui, sans-serif">${esc(n)}</text>`;
+}
+async function drawMinis(){
+  const els = [...document.querySelectorAll('.mmap[data-stack]')];
+  for(const el of els){
+    const store = el.getAttribute('data-store'), n = Number(el.getAttribute('data-stack'));
+    const K = S.stk, map = K && K.maps.get(store), row = K && K.rows.get(store) && K.rows.get(store).get(n);
+    el.classList.remove('fail');
+    el.innerHTML = `<div class="mmwait"><span>${t('map_loading')}</span></div>`;
+    const url = await planFor(store);
+    if(!el.isConnected) continue;
+    if(!url || !row || !map.plan_w || !map.plan_h){
+      // the numbers on the floor still work without the picture — say so and carry on
+      el.classList.add('fail');
+      el.innerHTML = `<div class="mmwait"><span>⚠️ ${t('map_fail',{ n: ltr(n) })}</span></div>`;
+      continue;
+    }
+    const Wp = map.plan_w, Hp = map.plan_h, s = MINI_SCALE, cw = el.clientWidth, ch = el.clientHeight;
+    const d = discAt(row, Wp, Hp, s, MINI_R);
+    let left = cw/2 - d.cx, top = ch/2 - d.cy;
+    left = Math.min(MINI_MARGIN, Math.max(cw - Wp*s - MINI_MARGIN, left));
+    top  = Math.min(MINI_MARGIN, Math.max(ch - Hp*s - MINI_MARGIN, top));
+    el.innerHTML = `<img src="${url}" alt="" style="left:${left}px;top:${top}px;width:${Wp*s}px;height:${Hp*s}px">`
+      + `<svg width="${cw}" height="${ch}" viewBox="0 0 ${cw} ${ch}">${discSvg(d.cx + left, d.cy + top, n,
+          { r:MINI_R, lead: d.lead ? { x:d.lx + left, y:d.ly + top } : null })}</svg>`;
+  }
+}
+const miniMap = (store, n) => `<div class="mmap" data-store="${esc(store)}" data-stack="${esc(n)}"></div>`;
+const shotHtml = (url) => `<div class="shot">${url ? `<img src="${esc(url)}" alt="">` : `<span class="noimg">📦</span>`}</div>`;
+
+/* ── the expression keypad («17×48+5»): staff count cartons; the device multiplies ── */
+function padPress(p, d, mode){
+  if(d === 'del') return '';
+  if(p.length >= 24) return p;
+  if(mode === 'int'){ if(!/^\d$/.test(d) || p.length >= 4) return p; return (p === '0' ? '' : p) + d; }
+  if(d === '×' || d === '+') return p && !/[×+.]$/.test(p) ? p + d : p;
+  const term = p.split(/[×+]/).pop();
+  if(d === '.') return term.includes('.') ? p : p + (term === '' ? '0.' : '.');
+  return term === '0' ? p.slice(0, -1) + d : p + d;
+}
+function exprInner(p){
+  if(!p) return '—';
+  if(!/[×+]/.test(p)) return esc(p);
+  const v = AU.evalCount(p);
+  return `<span class="ex">${esc(p)}</span>${v != null ? `<span class="eqv">= ${esc(v)}</span>` : ''}`;
+}
+function refreshExpr(btnId){
+  const box = document.getElementById('numbox');
+  box.innerHTML = exprInner(PAD); box.classList.toggle('empty', !PAD);
+  box.classList.toggle('exm', /[×+]/.test(PAD));
+  box.style.fontSize = PAD.length > 11 ? Math.max(18, 40 - PAD.length) + 'px' : '';
+  const b = document.getElementById(btnId); if(b) b.disabled = AU.evalCount(PAD) == null;
+}
+function refreshInt(btnId){
+  const box = document.getElementById('numbox');
+  box.textContent = PAD || '—'; box.classList.toggle('empty', !PAD);
+  const b = document.getElementById(btnId); if(b) b.disabled = PAD === '';
+}
+
+/* ═════ the walk: screen A «روح عالكومة» → screen B one SKU at a time ═════ */
+SCREENS.walk = {
+  back:false, ltrTitle:true,
+  title(){ const c = wCur(); if(!c) return t('title'); const ns = wStacks(); return `${Math.max(1, ns.indexOf(c.stack) + 1)} / ${ns.length}`; },
+  html(){
+    const W = S.walk, c = wCur();
+    if(!W || !c) return `<div class="state">${t('loading')}</div>`;
+    const ns = wStacks(), pct = Math.round((Math.max(0, ns.indexOf(c.stack)) / Math.max(1, ns.length)) * 100);
+    const prog = `<div class="prog"><div class="progbar"><i style="width:${pct}%"></i></div></div>`;
+    const row = S.stk.rows.get(W.store).get(c.stack) || {};
+    if(c.phase === 'go'){
+      const nCodes = (S.stk.idx.get(W.store).byStack.get(c.stack) || []).length;
+      return `${prog}
+        ${c.re ? `<div class="note warn">${t('re_note')}</div>` : ''}
+        <p class="goask">${t('go_ask')} <span class="gn ltr">${esc(c.stack)}</span></p>
+        ${miniMap(W.store, c.stack)}
+        <p class="zone">📍 ${bdi(row.zone || '')}${nCodes > 1 && !c.re ? ` · ${t('on_stack',{ n:nCodes })}` : ''}</p>
+        <button class="big hero" id="arrived">${t('arrived')}</button>
+        <button class="quitlink" id="pause">${t('pause')}</button>`;
+    }
+    const e = c.e;
+    return `${prog}
+      <div class="itemcard">
+        ${shotHtml(e.image_url)}
+        <div class="body">
+          <p class="iname clamp">${esc(e.name || e.code)}</p>
+          <div class="imeta km"><span class="kome">${t('stk')} ${ltr(c.stack)}</span>
+            ${e.part ? `<span class="kpart">${t('sc_part',{ a:e.part[0], b:e.part[1] })}</span>`
+                     : e.unit ? `<span class="tag">${esc(e.unit)}</span>` : ''}</div>
+        </div>
+      </div>
+      <p class="ask q"${c.re ? ' style="color:var(--warn)"' : ''}>${c.re ? '↻ ' + t('re_note') : t('sc_ask')}</p>
+      ${padHtml(PAD, 'expr')}
+      <button class="big hero" id="next" ${AU.evalCount(PAD) == null ? 'disabled' : ''}>${t('next')} ${FWD()}</button>
+      <div class="actrow">
+        <button class="act" id="zero"><span class="ic">0️⃣</span>${t('zero_short')}</button>
+        ${c.re ? '' : `<button class="act" id="nothere"><span class="ic">🚫</span>${t('not_here_short')}</button>`}
+        <button class="act" id="gob"><span class="ic">↩️</span>${t('prev_short')}</button>
+      </div>
+      <button class="quitlink" id="pause">${t('pause')}</button>`;
+  },
+  wire(){
+    const W = S.walk, c = wCur(); if(!W || !c) return;
+    const p = document.getElementById('pause');
+    if(p) p.onclick = ()=>{ if(!confirm(t('pause_confirm'))) return; saveWDraft(); PAD = ''; S.walk = null; S.stack = []; go('home', false); };
+    if(c.phase === 'go'){
+      document.getElementById('arrived').onclick = ()=>{
+        if(W.re) W.re.phase = 'count';
+        else {
+          // resume at the first entry on THIS stack that still needs an answer
+          const i = W.list.findIndex((e)=> e.stack === c.stack && wOpen(e));
+          if(i >= 0){ W.pos = i; const v = W.vals[W.list[i].key]; PAD = v ? (v.e || String(v.q)) : ''; }
+          W.phase = 'count';
+        }
+        go('walk', false);
+      };
+      drawMinis();
+      return;
+    }
+    wirePad(()=> refreshExpr('next'), 'expr');
+    refreshExpr('next');
+    document.getElementById('next').onclick = ()=>{
+      const q = AU.evalCount(PAD); if(q == null) return;
+      wAnswer(/[×+]/.test(PAD) ? { q, e:PAD } : { q });
+    };
+    document.getElementById('zero').onclick = ()=> wAnswer({ q:0 });
+    const nh = document.getElementById('nothere');
+    if(nh) nh.onclick = ()=>{ if(confirm(t('not_here_confirm',{ n:c.stack }))) wNotHere(); };
+    document.getElementById('gob').onclick = ()=>{ PAD = ''; if(W.re) W.re.phase = 'go'; else W.phase = 'go'; go('walk', false); };
+  },
+};
+
+SCREENS.walkerr = {
+  back:false, title:()=>t('err'),
+  html:()=>`<div class="doneicon">😕</div><p class="donebig">${t('save_err')}</p>
+    ${msgHtml()}
+    <button class="big hero" id="retry">${t('retry')}</button>
+    <button class="big calm" id="hm">${t('home_btn')}</button>`,
+  wire(){
+    document.getElementById('retry').onclick = ()=> wRetry();
+    // what is saved stays saved; the draft keeps the rest — «كمّل» saves an answer whose
+    // save failed here before it moves on (round 2: it used to walk past it)
+    document.getElementById('hm').onclick = ()=>{ S.walk = null; S.stack = []; go('home', false); };
+  },
+};
+
+SCREENS.walkdone = {
+  back:false, title:()=>t('title'),
+  html(){
+    const r = S.walkDone || { n:0, flagged:0 };
+    return `
+      <div class="doneicon">${r.n ? '✅' : '📋'}</div>
+      <p class="donebig">${t('done_ok')}</p>
+      <p class="donesub">${r.n ? t('wdone_sub',{ n:r.n }) : t('wdone_none')}</p>
+      ${r.flagged ? `<div class="note warn">${t('wdone_flag',{ n:r.flagged })}</div>` : ''}
+      ${r.base === 'ok' ? `<div class="note good">${t('wdone_base')}</div>` : ''}
+      ${r.base === 'no' ? `<div class="note warn">${t('wdone_base_no')}</div>` : ''}
+      <button class="big hero" id="hm">${t('home_btn')}</button>`;
+  },
+  wire(){ document.getElementById('hm').onclick = ()=>{ S.stack = []; go('home', false); }; },
+};
+
+/* ── what to count in a stack store: one question ── */
+SCREENS.stkscope = {
+  back:true, title:()=> stackLabel(S.store),
+  html(){
+    const K = S.stk, pr = cycleProgress(S.store), allDone = pr.m && pr.n >= pr.m;
+    const row = K.cycle.get(S.store), err = !row && K.cycleErr.get(S.store);
+    // ⚠ «ما في كومات لعدّة اليوم» only when the day's list IS empty — never for a list
+    // that is still being made, or that FAILED (round-2 B1)
+    const sub = !row ? (err ? `<span class="sub bad">${t('cyc_fail_sub')}</span>` : `<span class="sub">${t('cyc_busy')}</span>`)
+      : `<span class="sub">${!pr.m ? t('cyc_none') : allDone ? (pr.gone.length ? t('cyc_prog',{ n:pr.n, m:pr.m }) : t('cyc_all_done')) : t('sscope_cycle_sub',{ m:pr.m })}</span>`;
+    return `
+      <p class="ask">${t('scope_ask')}</p>
+      <p class="askwhy">${bdi(S.store)}</p>
+      ${err ? cycFailHtml(S.store, err) : ''}
+      ${row ? goneHtml(pr.gone) : ''}
+      <button class="big" data-sk="cycle" ${!pr.m || allDone ? 'disabled' : ''}><span class="ic">🌅</span>
+        <span class="tx">${t('sscope_cycle')}${sub}</span><span class="go">${FWD()}</span></button>
+      ${S.isApprover ? `<button class="big" data-sk="baseline"><span class="ic">🧱</span>
+        <span class="tx">${t('sscope_all')}<span class="sub">${t('sscope_all_sub')}</span></span><span class="go">${FWD()}</span></button>` : ''}
+      <button class="big" data-sk="stack"><span class="ic">🔢</span>
+        <span class="tx">${t('sscope_one')}<span class="sub">${t('sscope_one_sub')}</span></span><span class="go">${FWD()}</span></button>
+      <button class="big" data-sk="zone"><span class="ic">🚪</span>
+        <span class="tx">${t('sscope_zone')}<span class="sub">${t('sscope_zone_sub')}</span></span><span class="go">${FWD()}</span></button>`;
+  },
+  wire(){
+    wireStkRetry();
+    document.querySelectorAll('[data-sk]').forEach((b)=>{
+      b.onclick = ()=>{
+        const k = b.getAttribute('data-sk');
+        if(k === 'cycle'){ openCycle(S.store); return; }
+        if(k === 'baseline'){ S.sScope = { kind:'baseline' }; go('stkready'); return; }
+        if(k === 'stack'){ S.pickMode = 'scope'; PAD = ''; go('stkpick'); return; }
+        if(k === 'zone') go('stkzone');
+      };
+    });
+  },
+};
+// the home door for one stack store: its progress is the whole message
+// the reason a day's queue could not be made, and one button to try again
+function cycFailHtml(st, err){
+  return `<div class="note bad">${t('cyc_fail')}: ${bdi(stkMissing(err) ? AU.STACKS_SQL_FILE : String(err).slice(0,140))}</div>
+    <button class="big warnbtn" data-cycretry="${esc(st)}"><span class="ic">🔄</span>
+      <span class="tx">${t('retry')}<span class="sub">${t('cyc_door')}</span><span class="sub">${bdi(stackLabel(st))}</span></span></button>`;
+}
+function cycleDoorHtml(st, wd){
+  const pr = cycleProgress(st), name = stackLabel(st), row = S.stk.cycle.get(st);
+  const resume = !!(wd && wd.store === st && wd.scope.kind === 'cycle');
+  const err = S.stk.cycleErr.get(st);
+  // ⚠ fail LOUD: a queue that could not be computed says why (with a retry), never «no
+  // stacks today»; one still being made says so
+  if(!row && err) return cycFailHtml(st, err);
+  if(!row) return `<button class="big calm" disabled><span class="ic">🌅</span>
+    <span class="tx">${t('cyc_door')}<span class="sub">${bdi(name)}</span><span class="sub">${t('cyc_busy')}</span></span></button>`;
+  const warn = (row.local ? `<div class="note warn">${t('cyc_local')}</div>` : '') + goneHtml(pr.gone);
+  if(!pr.m) return `${warn}<button class="big calm" disabled><span class="ic">🌅</span>
+    <span class="tx">${t('cyc_door')}<span class="sub">${bdi(name)}</span><span class="sub">${t('cyc_none')}</span></span></button>`;
+  // a removal never completes the day in silence: with an emptied stack the ✓ is not drawn
+  if(pr.n >= pr.m && !resume && pr.gone.length) return `${warn}<button class="big calm" disabled><span class="ic">🌅</span>
+    <span class="tx">${t('cyc_door')}<span class="sub">${bdi(name)}</span><span class="sub"><b>${t('cyc_prog',{ n:pr.n, m:pr.m })}</b></span></span></button>`;
+  if(pr.n >= pr.m && !resume) return `<button class="big hero done" disabled>
+    <span class="tx">🌅 ${t('cyc_all_done')}<span class="sub">${bdi(name)}</span></span></button>`;
+  // the store sits on its own line — its label carries a dash of its own («هامة — الشقة الكبيرة»)
+  return `${warn}<button class="big hero" data-cyc="${esc(st)}">
+    <span class="tx">🌅 ${t(resume ? 'cyc_resume' : 'cyc_door')}<span class="sub">${bdi(name)}</span>
+      <span class="sub"><b>${t('cyc_prog',{ n:pr.n, m:pr.m })}</b></span></span></button>`;
+}
+// ⚠ W7 (round 3): what ANOTHER tablet finished today. The boot's snapshot goes stale in
+// minutes on a floor with two counters: the door's progress and the walk's skip-set read it.
+// Today's rows (Damascus midnight on) and today's «مو هون» reports are read again before a
+// morning walk opens, when home is drawn (at most every 20 s) and when the tablet wakes.
+let TODAY_AT = 0, OPENING = false;
+const todayStart = () => new Date(`${AU.damascusDay()}T00:00:00+03:00`).toISOString();
+const pauseMs = (ms) => new Promise((r)=> setTimeout(r, ms));
+function refreshToday(stores, force){
+  const K = S.stk; if(!K || !stores.length) return Promise.resolve(false);
+  // throttled: a skipped call resolves FALSE (never a stale promise — home redraws on true)
+  if(!force && Date.now() - TODAY_AT < 20000) return Promise.resolve(false);
+  TODAY_AT = Date.now();
+  const IN = inList(stores), since = enc(todayStart());
+  return Promise.all([
+    restAll(`stock_counts?select=id,code,store,counted_at,variance,recount,held,resolution_kind&store=${IN}&counted_at=gte.${since}`),
+    restAll(`stack_flags?select=*&store=${IN}&kind=eq.not_here&resolved_at=is.null&created_at=gte.${since}`),
+  ]).then(([cs, fl])=>{
+    if(S.stk !== K) return false;
+    let changed = false;
+    for(const r of cs || []){
+      const loc = K.counts.find((x)=> x.id === r.id);
+      if(!loc){ K.counts.unshift(r); changed = true; }
+      else if(loc.variance !== r.variance || loc.recount !== r.recount || !!loc.held !== !!r.held){ Object.assign(loc, r); changed = true; }
+    }
+    for(const f of fl || []) if(!K.flags.some((x)=> x.id === f.id)){ K.flags.unshift(f); changed = true; }
+    return changed;
+  }).catch((e)=>{ console.warn('today:', errText(e)); return false; });
+}
+function refreshHomeBg(force){
+  const ss = stackStores(); if(!ss.length) return;
+  refreshToday(ss, force).then((changed)=>{ if(changed && (S.screen === 'home' || S.screen === 'stkscope')) render(); });
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'visible') refreshHomeBg(true); });
+async function openCycle(store){
+  if(OPENING) return;                       // a second tap while today's rows are read
+  OPENING = true;
+  try{
+    // bounded: a slow read never holds the walk — it opens on the snapshot it has
+    await Promise.race([refreshToday([store], true), pauseMs(4000)]);
+    await openCycleNow(store);
+  }finally{ OPENING = false; }
+}
+async function openCycleNow(store){
+  const d = readWDraft();
+  if(d && d.store === store && d.scope.kind === 'cycle'){ resumeWalk(); return; }
+  // the queue is made lazily (D10) — a tap that beats it waits for it
+  if(!S.stk.cycle.has(store)){
+    go('boot', false);
+    await cycleBg(store);
+    if(!S.stk.cycle.has(store)){ S.stack = []; go('home', false); return; }
+  }
+  startWalk(store, { kind:'cycle', day:AU.damascusDay() });
+}
+
+SCREENS.stkzone = {
+  back:true, title:()=>t('sscope_zone'),
+  html(){
+    const ix = S.stk.idx.get(S.store), zones = [];
+    for(const r of S.stk.rows.get(S.store).values()){
+      if(!(ix.byStack.get(Number(r.stack_no)) || []).length || !r.zone) continue;
+      if(!zones.includes(r.zone)) zones.push(r.zone);
+    }
+    // ⚠ the number on the button is the number of stacks the walk VISITS — a shared SKU
+    // brings its other stacks along, from another room too (the ready screen names them)
+    return `<p class="ask">${t('zone_ask')}</p>` + zones.map((z)=>
+      `<button class="big" data-zone="${esc(z)}"><span class="ic">🚪</span>
+        <span class="tx">${esc(z)}</span><span class="n">${t('zone_n',{ n:walkStacks(S.store, { kind:'zone', zone:z }).length })}</span></button>`).join('');
+  },
+  wire(){
+    document.querySelectorAll('[data-zone]').forEach((b)=>{
+      b.onclick = ()=>{ S.sScope = { kind:'zone', zone:b.getAttribute('data-zone') }; go('stkready'); };
+    });
+  },
+};
+
+SCREENS.stkready = {
+  back:true, title:()=> stackLabel(S.store),
+  html(){
+    const nos = walkStacks(S.store, S.sScope);
+    if(!nos.length) return `<p class="ask">${t('ready_empty')}</p><button class="big" id="bk">${t('back')}</button>`;
+    const rows = S.stk.rows.get(S.store);
+    const asked = S.sScope.kind === 'stack' ? [Number(S.sScope.stack)]
+      : S.sScope.kind === 'zone' ? [...rows.values()].filter((r)=> r.zone === S.sScope.zone).map((r)=> Number(r.stack_no)) : null;
+    const added = asked ? nos.filter((n)=> !asked.includes(n)) : [];
+    return `
+      <div class="doneicon">🔢</div>
+      <p class="donebig">${t('sready_n',{ n:nos.length })}</p>
+      <p class="donesub">${bdi(S.store)}</p>
+      ${added.length ? `<div class="note warn">${t('sready_group',{ list: stackList(added) })}</div>` : ''}
+      <div class="note">${t('sready_how')}</div>
+      <button class="big hero" id="start">${t('ready_go')} ${FWD()}</button>`;
+  },
+  wire(){
+    const b = document.getElementById('bk'); if(b) b.onclick = back;
+    const s = document.getElementById('start');
+    if(s) s.onclick = ()=> startWalk(S.store, S.sScope);
+  },
+};
+
+/* ── «رقم الكومة؟» — one keypad for four jobs (count one stack, report short, place, check) ── */
+SCREENS.stkpick = {
+  back:true,
+  title(){ return S.pickMode === 'short' ? t('short_door') : S.pickMode === 'map' ? t('smap_un')
+    : S.pickMode === 'check' ? t('smap_chk') : t('sscope_one'); },
+  html(){
+    const it = S.pickMode === 'map' ? S.smItem : null;
+    return `
+      ${it ? `<div class="itemcard">${shotHtml(it.image_url)}<div class="body"><p class="iname">${esc(it.name || it.code)}</p>
+        ${it.qty != null ? `<div class="imeta"><span class="tag qty">${t('have')} ${ltr(it.qty)}${it.unit ? ' ' + esc(it.unit) : ''}</span></div>` : ''}</div></div>` : ''}
+      <p class="ask">${t('pick_ask')}</p>
+      <p class="askwhy">${t('pick_why')}</p>
+      ${padHtml(PAD, 'int')}
+      ${msgHtml()}
+      <button class="big hero" id="pgo" ${PAD === '' ? 'disabled' : ''}>${t('pick_go')} ${FWD()}</button>`;
+  },
+  wire(){
+    wirePad(()=>{ refreshInt('pgo'); const m = document.querySelector('#app .note.bad'); if(m) m.remove(); }, 'int');
+    document.getElementById('pgo').onclick = ()=>{
+      const n = Number(AU.toWestern(PAD));
+      const row = S.stk.rows.get(S.store).get(n);
+      const codes = S.stk.idx.get(S.store).byStack.get(n) || [];
+      if(!row){ S.msg = t('no_stack',{ n }); PAD = ''; render(); return; }
+      if((S.pickMode === 'scope' || S.pickMode === 'short') && !codes.length){ S.msg = t('empty_stack',{ n }); PAD = ''; render(); return; }
+      PAD = ''; S.pickNo = n;
+      if(S.pickMode === 'scope'){ S.sScope = { kind:'stack', stack:n }; go('stkready'); return; }
+      if(S.pickMode === 'map'){ go('smapok'); return; }
+      if(S.pickMode === 'check'){ go('scheck'); return; }
+      if(S.pickMode === 'short'){ if(codes.length > 1) go('shortitem'); else submitShort(codes[0]); }
+    };
+  },
+};
+
+/* ── «الكومة ما فيها كفاية»: a picker reports a short stack; it is counted first tomorrow ── */
+async function submitShort(code){
+  const u = me();
+  go('saving', false);
+  try{
+    const row = { store:S.store, stack_no:S.pickNo, code:code || null, kind:'short', by_name:u.name, created_by:u.id };
+    const back = ((await rest('stack_flags', { method:'POST', headers:{ Prefer:'return=representation' },
+      body: JSON.stringify([row]) })) || [])[0] || Object.assign({ created_at:new Date().toISOString() }, row);
+    S.stk.flags.unshift(back);
+    go('shortdone', false);
+  }catch(e){ S.pickMode = 'short'; go('stkpick', false, stkErrMsg(e)); }
+}
+SCREENS.shortitem = {
+  back:true, title:()=>t('short_door'),
+  html(){
+    const codes = S.stk.idx.get(S.store).byStack.get(S.pickNo) || [];
+    return `<p class="ask">${t('short_ask_item')}</p><p class="askwhy">${t('stk')} ${ltr(S.pickNo)}</p>`
+      + codes.map((c)=>{ const it = itemOf(c); return `<button class="irow" data-sc="${esc(c)}">${shotHtml(it.image_url)}
+          <span class="tx">${esc(it.name || c)}</span></button>`; }).join('')
+      + `<button class="big calm" data-sc="">${t('short_any')}</button>`;
+  },
+  wire(){ document.querySelectorAll('[data-sc]').forEach((b)=>{ b.onclick = ()=> submitShort(b.getAttribute('data-sc') || null); }); },
+};
+SCREENS.shortdone = {
+  back:false, title:()=>t('short_door'),
+  html:()=>`<div class="doneicon">📣</div><p class="donebig">${t('short_done')}</p>
+    <p class="donesub">${t('short_done_sub',{ n:ltr(S.pickNo) })}</p>
+    <button class="big hero" id="hm">${t('home_btn')}</button>`,
+  wire(){ document.getElementById('hm').onclick = ()=>{ S.stack = []; go('home', false); }; },
+};
+
+/* ── MAPPING a stack store: ITEM-FIRST («this item → which stack?») ──
+   ⚠ BLIND, through the back door (round-2 X11): «عندك N» IS the expected figure a count
+   hides. «شو على الكومة» → «شيل» → «مواد بلا كومة» used to read it in three taps. The
+   quantity is shown only for an item never counted in this warehouse and not taken off a
+   stack in the last 30 days; approvers see it (their screens show the expected anyway).
+   Round 3 (W6): the removal is LOGGED ON THE SERVER — phase33 writes a closed stack_flags
+   row (kind 'removed') whenever an SKU leaves a stack, and loadStacks reads the last 30
+   days of it — so a second tablet, a phone, or this tablet after its site data is cleared
+   hides the quantity too. This device's own log (below) is only the instant answer between
+   its «شيل» and the next read. */
+const UNSTK_KEY = 'lw_wh_unstacked_v1';
+function unstackedLog(){ try{ return JSON.parse(localStorage.getItem(UNSTK_KEY) || '{}') || {}; }catch{ return {}; } }
+function noteUnstacked(store, code){
+  try{
+    const l = unstackedLog(), cut = Date.now() - 30*86400000;
+    for(const k of Object.keys(l)) if(l[k] < cut) delete l[k];
+    l[store + '|' + code] = Date.now();
+    localStorage.setItem(UNSTK_KEY, JSON.stringify(l));
+  }catch{}
+}
+// null = show it; otherwise the words for why it is hidden
+function qtyHidden(store, code){
+  if(S.isApprover) return null;
+  if((S.stk.removed || []).some((f)=> f.store === store && f.code === code)) return 'smap_hidden_off';
+  if(unstackedLog()[store + '|' + code]) return 'smap_hidden_off';
+  return S.stk.counts.some((r)=> r.store === store && r.code === code) ? 'smap_hidden' : null;
+}
+function unstacked(store){
+  const ix = S.stk.idx.get(store), out = [];
+  for(const it of S.items || []){
+    const q = AU.stockAt(it, store);
+    if(!(q > 0) || ix.byCode.has(it.code)) continue;
+    const hide = qtyHidden(store, it.code);
+    out.push({ code:it.code, name:it.name, unit:it.unit, image_url:it.image_url || null,
+               qty: hide ? null : AU.r3(q), hide, _q:q });
+  }
+  return out.sort((a,b)=> b._q - a._q);
+}
+SCREENS.smap = {
+  back:true, title:()=>t('home_map'),
+  html(){
+    const n = unstacked(S.store).length;
+    return `
+      <p class="ask">${t('smap_ask')}</p>
+      <p class="askwhy">${bdi(S.store)}</p>
+      ${msgHtml()}
+      <button class="big${n ? ' warnbtn' : ''}" id="toun" ${n ? '' : 'disabled'}><span class="ic">📦</span>
+        <span class="tx">${t('smap_un')}<span class="sub">${n ? t('smap_un_sub',{ n }) : t('smap_un_none')}</span></span>
+        ${n ? `<span class="n">${n}</span>` : ''}</button>
+      <button class="big" id="tochk"><span class="ic">🔎</span>
+        <span class="tx">${t('smap_chk')}<span class="sub">${t('smap_chk_sub')}</span></span><span class="go">${FWD()}</span></button>`;
+  },
+  wire(){
+    document.getElementById('toun').onclick = ()=> go('smaplist');
+    document.getElementById('tochk').onclick = ()=>{ S.pickMode = 'check'; PAD = ''; go('stkpick'); };
+  },
+};
+SCREENS.smaplist = {
+  back:true, title:()=>t('smap_un'),
+  html(){
+    const list = unstacked(S.store);
+    if(!list.length) return `<div class="doneicon">✅</div><p class="donebig">${t('smap_un_none')}</p>
+      ${msgHtml()}<button class="big hero" id="hm">${t('home_btn')}</button>`;
+    return `<p class="ask">${t('smap_pick')}</p>${msgHtml()}` + list.map((it)=>
+      `<button class="irow" data-mc="${esc(it.code)}">${shotHtml(it.image_url)}
+        <span class="tx">${esc(it.name || it.code)}<span class="sub">${it.qty != null ? `${t('have')} ${ltr(it.qty)}${it.unit ? ' ' + esc(it.unit) : ''}` : t(it.hide)}</span></span>
+        <span class="go">${FWD()}</span></button>`).join('');
+  },
+  wire(){
+    const hm = document.getElementById('hm'); if(hm) hm.onclick = ()=>{ S.stack = []; go('home', false); };
+    document.querySelectorAll('[data-mc]').forEach((b)=>{
+      b.onclick = ()=>{ S.smItem = unstacked(S.store).find((i)=> i.code === b.getAttribute('data-mc')); S.pickMode = 'map'; PAD = ''; go('stkpick'); };
+    });
+  },
+};
+const onStackNames = (store, n) => (S.stk.idx.get(store).byStack.get(n) || []).map((c)=> itemOf(c));
+SCREENS.smapok = {
+  back:true, title:()=>t('smap_un'),
+  html(){
+    const row = S.stk.rows.get(S.store).get(S.pickNo) || {}, on = onStackNames(S.store, S.pickNo);
+    return `
+      <p class="goask">${t('smap_ok_ask')} <span class="gn ltr">${esc(S.pickNo)}</span></p>
+      <p class="zone">📦 ${esc(S.smItem ? (S.smItem.name || S.smItem.code) : '')}</p>
+      ${miniMap(S.store, S.pickNo)}
+      <p class="zone">📍 ${bdi(row.zone || '')}</p>
+      ${on.length ? `<div class="note">${t('smap_on')} ${on.map((i)=> bdi(i.name || i.code)).join('، ')}</div>` : ''}
+      ${msgHtml()}
+      <button class="big hero" id="yes">${t('smap_ok')}</button>
+      <button class="big calm" id="no">${t('smap_other')}</button>`;
+  },
+  wire(){
+    drawMinis();
+    document.getElementById('no').onclick = ()=>{ PAD = ''; S.pickMode = 'map'; go('stkpick', false); };
+    document.getElementById('yes').onclick = async ()=>{
+      const b = document.getElementById('yes'); b.disabled = true; b.textContent = t('saving');
+      const it = S.smItem, n = S.pickNo;
+      try{
+        await rest('stack_items', { method:'POST', headers:{ Prefer:'return=representation' },
+          body: JSON.stringify([{ store:S.store, stack_no:n, code:it.code, updated_by:me().name }]) });
+        S.stk.sitems.push({ store:S.store, stack_no:n, code:it.code }); reindexStore(S.store);
+        const nos = AU.stacksOfCode(S.stk.idx.get(S.store).byCode, it.code);
+        const l = (S.locs.get(it.code) || []).filter((x)=> x.store !== S.store);
+        l.push({ code:it.code, store:S.store, loc:`كومة ${nos.join(' · ')}` }); S.locs.set(it.code, l);
+        S.stack = ['home','store','smap']; go('smaplist', false, '');
+        const m = document.createElement('div'); m.className = 'note good'; m.textContent = t('smap_saved',{ n });
+        document.getElementById('app').prepend(m);
+      }catch(e){
+        // the server's own words, whole (the one-SKU-per-stack trigger explains itself)
+        S.msg = errText(e); render();
+      }
+    };
+  },
+};
+SCREENS.scheck = {
+  back:true, title:()=>t('smap_chk'),
+  html(){
+    const row = S.stk.rows.get(S.store).get(S.pickNo) || {}, on = onStackNames(S.store, S.pickNo);
+    return `
+      <p class="goask">${t('stk')} <span class="gn ltr">${esc(S.pickNo)}</span></p>
+      ${miniMap(S.store, S.pickNo)}
+      <p class="zone">📍 ${bdi(row.zone || '')}</p>
+      ${row.note ? `<p class="askwhy">${esc(row.note)}</p>` : ''}
+      ${msgHtml()}
+      ${on.length ? `<p class="ask q">${t('smap_on')}</p>` + on.map((i)=> `<div class="irow">${shotHtml(i.image_url)}
+          <span class="tx">${esc(i.name || i.code)}<span class="sub ltr">${esc(i.code)}</span></span>
+          <button class="rm" data-rm="${esc(i.code)}">${t('smap_remove')}</button></div>`).join('')
+        : `<div class="note">${t('smap_nothing')}</div>`}`;
+  },
+  wire(){
+    drawMinis();
+    document.querySelectorAll('[data-rm]').forEach((b)=>{
+      b.onclick = async ()=>{
+        const code = b.getAttribute('data-rm'), it = itemOf(code), n = S.pickNo;
+        if(!confirm(t('smap_remove_confirm',{ name:it.name || code, n }))) return;
+        b.disabled = true;
+        try{
+          await rest(`stack_items?store=eq.${enc(S.store)}&stack_no=eq.${n}&code=eq.${enc(code)}`, { method:'DELETE' });
+          noteUnstacked(S.store, code);
+          // the server logged it too (phase33); mirror that here until the next read
+          S.stk.removed.unshift({ store:S.store, stack_no:n, code, created_at:new Date().toISOString(), local:true });
+          S.stk.sitems = S.stk.sitems.filter((r)=> !(r.store === S.store && Number(r.stack_no) === n && r.code === code));
+          reindexStore(S.store);
+          const nos = AU.stacksOfCode(S.stk.idx.get(S.store).byCode, code);
+          const l = (S.locs.get(code) || []).filter((x)=> x.store !== S.store);
+          if(nos.length) l.push({ code, store:S.store, loc:`كومة ${nos.join(' · ')}` });
+          S.locs.set(code, l); S.msg = ''; render();
+        }catch(e){ S.msg = errText(e); render(); }
+      };
+    });
+  },
+};
+
+/* ═════ APPROVERS: «⚖️ الفروقات» — the ledger of a stack store ═════ */
+async function loadLedger(store){
+  const [rows, flags] = await Promise.all([
+    restAll(`stock_ledger?select=*&store=eq.${enc(store)}&state=neq.clean&order=counted_at.desc`),
+    restAll(`stack_flags?select=*&store=eq.${enc(store)}&resolved_at=is.null&order=created_at.desc`),
+  ]);
+  S.led = { store, rows, flags };
+  S.stk.flags = [...S.stk.flags.filter((f)=> f.store !== store), ...flags];
+  S.stk.ledN.set(store, rows.filter((r)=> r.state === 'to_approve' || r.state === 'held').length);
+}
+async function openLedger(store){
+  S.ledStore = store; go('saving');
+  try{ await loadLedger(store); S.stack.pop(); go('ledger', false); S.stack.push('problems'); }
+  catch(e){ S.stack.pop(); go('problems', false, stkErrMsg(e)); }
+}
+// a server timestamp (UTC on the wire) in DAMASCUS wall-clock time — the same day key the
+// app's own logic uses (AU.damascusDay); a count at 01:30 on the 28th reads the 28th
+function dmStamp(iso, withTime){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d)) return String(iso).slice(0, withTime ? 16 : 10).replace('T', ' ');
+  if(!withTime) return AU.damascusDay(d);
+  try{
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone:'Asia/Damascus', hour:'2-digit',
+      minute:'2-digit', hourCycle:'h23' }).formatToParts(d).map((x)=> [x.type, x.value]));
+    return `${AU.damascusDay(d)} ${p.hour}:${p.minute}`;
+  }catch{ const z = new Date(d.getTime() + 3*3600000).toISOString(); return `${z.slice(0,10)} ${z.slice(11,16)}`; }
+}
+// ⚠ the SIGN goes inside the isolate: outside it, an RTL line flings «−» to the far end
+// and «−$15.00» reads «$15.00−» (eyeball-caught on the ledger strip, 28 Sep)
+const money = (v) => ltr(`${Number(v) < 0 ? '−' : ''}$${Math.abs(Number(v) || 0).toFixed(2)}`);
+const signed = (v) => { const d = Number(v || 0); return ltr(`${d < 0 ? '−' : '+'}${Math.abs(d)}`); };
+// stack numbers each isolated, so a list reads in the line's own order (Arabic: first on the right)
+const stackList = (nos) => nos.map((n)=> ltr(n)).join(' · ');
+const LEDK = { approve:'to_approve', held:'held', post:'to_post', unver:'unverified' };
+SCREENS.ledger = {
+  back:true, title:()=>t('led_title'),
+  html(){
+    const L = S.led; if(!L) return `<div class="state">${t('loading')}</div>`;
+    // ⚠ ONE basis, and it is the ENGINE's (round 3, W9): an open row is worth its to_post, a
+    // settled row its gap — the view's rows arrive whole (select=*), so a loss carried through
+    // a confirming count (variance 0, gap −10) stays −$200 after Qusay posts it (round-2 X3/A12)
+    const s = AU.ledgerSummary(L.rows);
+    const n = (k) => L.rows.filter((r)=> r.state === LEDK[k]).length;
+    const card = (id, ic, k, cnt, tone) => `
+      <button class="big${cnt ? (tone || ' warnbtn') : ''}" data-lk="${id}" ${cnt ? '' : 'disabled'}>
+        <span class="ic">${ic}</span><span class="tx">${t('led_'+k)}<span class="sub">${t('led_'+k+'_sub')}</span></span>
+        <span class="n">${cnt}</span></button>`;
+    const b = S.stk.base.get(L.store);
+    return `
+      <p class="ask">${t('led_title')}</p><p class="askwhy">${bdi(L.store)}</p>
+      ${msgHtml()}
+      <div class="sumstrip">
+        <div class="sumcell loss"><span class="lb">${t('led_loss')} · ${ltr(s.lossN)}</span><span class="fig">${money(s.loss)}</span></div>
+        <div class="sumcell gain"><span class="lb">${t('led_gain')} · ${ltr(s.surplusN)}</span><span class="fig">${money(s.surplus)}</span></div>
+      </div>
+      ${s.unvalued ? `<div class="note warn">${t('led_unvalued',{ n:s.unvalued })}</div>` : ''}
+      ${card('approve','⚖️','approve',n('approve'))}
+      ${card('held','⏸️','held',n('held'))}
+      ${card('flags','📣','flags',L.flags.length)}
+      ${card('post','🖊️','post',n('post'),' calm')}
+      ${card('unver','🔁','unver',n('unver'),' calm')}
+      <button class="big" data-lk="base"><span class="ic">🧱</span>
+        <span class="tx">${t('led_base')}<span class="sub">${b ? `${t('base_last')}: ${ltr(dmStamp(b.at))} · ${t(b.kind === 'count' ? 'base_count' : 'base_declared')}` : t('base_none')}</span></span>
+        <span class="go">${FWD()}</span></button>
+      <button class="big" data-lk="cycle"><span class="ic">🌅</span>
+        <span class="tx">${t('led_cycle')}<span class="sub">${cycleCapText(L.store)}</span></span>
+        <span class="go">${FWD()}</span></button>`;
+  },
+  wire(){ document.querySelectorAll('[data-lk]').forEach((b)=>{ b.onclick = ()=>{ S.ledKind = b.getAttribute('data-lk'); S.res = {}; go('ledlist'); }; }); },
+};
+function cycleCapText(store){
+  const K = S.stk, map = K.maps.get(store), ix = K.idx.get(store);
+  const cap = AU.cycleCapacity(ix.byStack, AU.storeAbc(S.items, store, [...ix.byCode.keys()]), map.due_days, Number(map.cycle_per_day) || 8);
+  return t(cap.ok ? 'cap_ok' : 'cap_bad', { need:ltr(cap.need), per:ltr(cap.perDay) });
+}
+// a row waiting on a decision or on Qusay: its figure is the one that will be POSTED
+const pendingRow = (r) => (r.state === 'to_approve' || r.state === 'to_post') && r.to_post != null;
+function ledRowHtml(r, extra){
+  const v = Number(r.variance || 0), pend = pendingRow(r);
+  const d = pend ? Number(r.to_post) : v;
+  const val = pend ? Math.round(d * Number(r.cost || 0) * 100) / 100 : r.value;
+  const stacks = stackList(Object.keys(r.stacks || {}));
+  return `<div class="row">
+    <div class="rowtop"><span class="rowname">${esc(r.name || r.code)}</span>
+      <span class="figure ${d < 0 ? 'bad' : 'good'}">${signed(d)}</span></div>
+    ${pend && Math.abs(d - v) > 0.0005 ? `<div class="rowsub">${t('led_carry', { v:signed(v), g:signed(d) })}</div>` : ''}
+    <div class="rowsub">${ltr(r.code)}${stacks ? ` · ${t('stk')} ${stacks}` : ''} · ${t('led_expected')} ${ltr(r.expected)} · ${t('led_counted')} ${ltr(r.counted)}</div>
+    <div class="rowsub">${esc(r.counted_by_name || '')} · ${ltr(dmStamp(r.counted_at))}${Number(r.cost) > 0 ? ` · ${t('led_value')} ${money(val)}` : ''}</div>
+    ${extra || ''}</div>`;
+}
+SCREENS.ledlist = {
+  back:true, title(){ return t('led_' + S.ledKind); },
+  html(){
+    const L = S.led, k = S.ledKind;
+    const head = `<p class="ask">${t('led_'+k)}</p>${t('led_'+k+'_sub') !== 'led_'+k+'_sub' ? `<p class="askwhy">${t('led_'+k+'_sub')}</p>` : ''}${msgHtml()}`;
+    if(k === 'approve'){
+      const RES = ['miscount','bill','damaged','missing','adjust'];
+      const rows = L.rows.filter((r)=> r.state === 'to_approve');
+      return head + (rows.map((r)=>{ const e = S.res[r.id] || {};
+        return ledRowHtml(r, `<div class="rowsub" style="margin-top:8px">${t('res_ask')}</div>
+          <div class="reschips">${RES.map((x)=> `<button class="res tall${e.kind === x ? ' on' : ''}" data-res="${esc(r.id)}" data-kind="${x}">${t('res_'+x)}</button>`).join('')}</div>
+          <button class="savebtn tall" data-save="${esc(r.id)}" ${e.kind ? '' : 'disabled'}>${t('res_save')}</button>`); }).join('')
+        || `<div class="note good">${t('led_empty')}</div>`);
+    }
+    if(k === 'held'){
+      const rows = L.rows.filter((r)=> r.state === 'held');
+      return head + (rows.map((r)=> ledRowHtml(r, `<div class="note warn" style="margin:10px 0 0">${t('held_why')} ${esc(r.held_why || '—')}</div>
+          <button class="rowact go" data-held="${esc(r.id)}">${t('held_ok')}</button>`)).join('')
+        || `<div class="note good">${t('led_empty')}</div>`);
+    }
+    if(k === 'post' || k === 'unver'){
+      const rows = L.rows.filter((r)=> r.state === LEDK[k]);
+      return head + (rows.map((r)=> ledRowHtml(r, k === 'post'
+          ? `<div class="rowsub">${t('res_ask')} ${esc(r.resolution || r.resolution_kind || '')} · ${t('led_to_post')} ${signed(r.to_post)}</div>` : '')).join('')
+        || `<div class="note good">${t('led_empty')}</div>`);
+    }
+    if(k === 'flags'){
+      return head + (L.flags.map((f)=>{ const it = itemOf(f.code);
+        return `<div class="row"><div class="rowtop"><span class="rowname">${t('stk')} ${ltr(f.stack_no)} — ${t(f.kind === 'short' ? 'flag_short' : 'flag_not_here')}</span></div>
+          <div class="rowsub">${f.code ? esc(it.name || f.code) : '—'}</div>
+          <div class="rowsub">${t('flag_by')}: ${esc(f.by_name || '')} · ${ltr(dmStamp(f.created_at, true))}</div>
+          <button class="rowact" data-flag="${esc(f.id)}">✓ ${t('flag_done')}</button></div>`; }).join('')
+        || `<div class="note good">${t('led_empty')}</div>`);
+    }
+    if(k === 'base'){
+      const b = S.stk.base.get(L.store);
+      return `<p class="ask">${t('led_base')}</p><p class="askwhy">${bdi(L.store)}</p>${msgHtml()}
+        <div class="row"><div class="rowname">${b ? t('base_last') : t('base_none')}</div>
+          ${b ? `<div class="rowsub">${ltr(dmStamp(b.at, true))} · ${t(b.kind === 'count' ? 'base_count' : 'base_declared')}${b.by_name ? ' · ' + esc(b.by_name) : ''}</div>` : ''}</div>
+        <div class="note">${t('base_confirm')}</div>
+        <button class="big warnbtn" id="setbase"><span class="ic">🧱</span><span class="tx">${t('base_set')}</span></button>`;
+    }
+    if(k === 'cycle'){
+      const row = S.stk.cycle.get(L.store);
+      return `<p class="ask">${t('led_cycle')}</p><p class="askwhy">${bdi(L.store)}</p>${msgHtml()}
+        <div class="note">${cycleCapText(L.store)}</div>
+        <div class="row"><div class="rowname">${t('cyc_today')}</div>
+          <div class="rowsub">${row && (row.stacks || []).length ? stackList(row.stacks) : t('cyc_today_none')}</div></div>
+        <button class="big warnbtn" id="reroll"><span class="ic">🔄</span><span class="tx">${t('cyc_reroll')}</span></button>`;
+    }
+    return '';
+  },
+  wire(){
+    const L = S.led, store = L.store;
+    const act = async (btn, fn)=>{ btn.disabled = true; btn.textContent = t('saving');
+      try{ await fn(); await loadLedger(store); S.msg = ''; render(); }
+      catch(e){ S.msg = errText(e); render(); } };
+    document.querySelectorAll('[data-res]').forEach((b)=>{
+      b.onclick = ()=>{ const id = b.getAttribute('data-res'); S.res[id] = { kind:b.getAttribute('data-kind') }; render(); };
+    });
+    document.querySelectorAll('[data-save]').forEach((b)=>{
+      b.onclick = ()=>{ const id = b.getAttribute('data-save'), e = S.res[id]; if(!e || !e.kind) return;
+        // the reason is written as a PAIR: the label Qusay reads, and the kind the server keys on
+        act(b, ()=> rest(`stock_counts?id=eq.${enc(id)}`, { method:'PATCH', body: JSON.stringify({
+          resolution: DICT.ar['res_' + e.kind], resolution_kind: e.kind,
+          resolved_by: me().name, resolved_at: new Date().toISOString() }) })); };
+    });
+    document.querySelectorAll('[data-held]').forEach((b)=>{
+      b.onclick = ()=> act(b, ()=> rest(`stock_counts?id=eq.${enc(b.getAttribute('data-held'))}`,
+        { method:'PATCH', body: JSON.stringify({ held:false }) }));
+    });
+    document.querySelectorAll('[data-flag]').forEach((b)=>{
+      b.onclick = ()=> act(b, ()=> rest(`stack_flags?id=eq.${enc(b.getAttribute('data-flag'))}`,
+        { method:'PATCH', body: JSON.stringify({ resolved_at:new Date().toISOString(), resolved_by:me().name }) }));
+    });
+    const sb = document.getElementById('setbase');
+    if(sb) sb.onclick = ()=>{
+      const open = L.rows.filter((r)=> r.state === 'to_post' || r.state === 'to_approve');
+      const msg = (open.length ? t('base_open',{ n:open.length }) + '\n' + open.slice(0,12).map((r)=> '• ' + (r.name || r.code)).join('\n') + '\n\n' : '') + t('base_confirm');
+      if(!confirm(msg)) return;
+      act(sb, async ()=>{
+        const u = me(), b = { store, at:new Date().toISOString(), kind:'declared', by_name:u.name, note:t('base_set') };
+        await rest('warehouse_baselines', { method:'POST', headers:{ Prefer:'return=minimal' }, body: JSON.stringify([b]) });
+        S.stk.base.set(store, b);
+      });
+    };
+    const rr = document.getElementById('reroll');
+    if(rr) rr.onclick = ()=>{
+      if(!confirm(t('cyc_reroll_confirm'))) return;
+      act(rr, async ()=>{
+        await rest(`cycle_days?store=eq.${enc(store)}&day=eq.${AU.damascusDay()}`, { method:'DELETE' });
+        S.stk.cycle.delete(store); S.stk.cycleErr.delete(store);
+        await cycleBg(store);                  // bounded by STK_TIMEOUT, like the morning door
+        if(!S.stk.cycle.has(store)) throw new Error(S.stk.cycleErr.get(store) || t('err'));
+      });
+    };
   },
 };
 
@@ -1187,15 +3087,21 @@ document.getElementById('langbtn').onclick = ()=>{
   if(!savedAuth()){ go('login', false); return; }
   try{
     await loadAll();
+    // ⚠ D10 (round 2): the boot is HEAD's — home is drawn after loadAll and one
+    // stock_counts read. The stack loads start here and run BEHIND it (never awaited):
+    // a slow or hung phase33 read can no longer hold the rack flows hostage.
+    startStacks();
     try{
       const v = await restAll('stock_counts?select=*&resolution=is.null&variance=neq.0&order=counted_at.desc');
-      S.openVar = AU.openVariances(v);
-    }catch(e){ S.openVar = []; }
+      S.openVarAll = AU.openVariances(v);
+    }catch(e){ S.openVarAll = []; }
+    applyOpenVar();
     S.probs = null;
     go('home', false);
+    kickCycles();          // stacks that landed before the home screen: their queue starts now
   }catch(e){
     if(String(e.message) === 'no-session'){ go('login', false); return; }
-    S.msg = String(e.message).slice(0,200);
+    S.msg = errText(e);
     document.getElementById('app').innerHTML =
       `<div class="doneicon">😕</div><p class="donebig">${t('err')}</p>${msgHtml()}`;
   }
