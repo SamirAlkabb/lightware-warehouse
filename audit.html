@@ -228,6 +228,8 @@
   .goask{font-size:24px; font-weight:800; line-height:1.25; margin:2px 0 10px}
   .goask .gn{font-size:46px; font-variant-numeric:tabular-nums}
   .zone{color:var(--muted); font-size:16px; font-weight:700; margin:0 0 12px}
+  .note.stknote{padding:10px 14px; font-size:15px; line-height:1.45; margin:0 0 12px}
+  .note.stknote div + div{margin-top:4px}
   .mmap{position:relative; height:270px; border-radius:18px; overflow:hidden; background:#fff;
         border:2px solid var(--line); margin:0 0 10px}
   .mmap img{position:absolute; max-width:none; user-select:none; pointer-events:none}
@@ -391,8 +393,10 @@ const DICT = {
     p_none:'ما في ولا مشكلة ✓', mgr_only:'هالصفحة للمسؤولين',
     var_expected:'المفروض', var_counted:'انعدّ', var_diff:'الفرق',
     res_ask:'شو صار؟',
+    res_transfer:'منزّلة على مستودع المكتب',
     res_miscount:'خطأ عدّ', res_bill:'فاتورة ناقصة بالأمين', res_damaged:'تالف',
     res_missing:'مفقود', res_adjust:'تسوية', res_save:'سجّل القرار', res_done:'انسجّل ✓',
+    res_needs_paste:'هالسبب جديد وقاعدة البيانات لسا ما بتعرفو — لازم تنلصق phase33_stack_warehouse.sql من جديد',
     neg_qty:'الكمية', store_word:'مستودع', items_word:'{n} مادة', value_word:'بقيمة',
     value_floor:'على الأقل', of_which:'{n} منها بلا رف',
     /* generic */
@@ -415,6 +419,7 @@ const DICT = {
     sready_how:'رح نوديك عكومة كومة. عدّ يلي عليها واكتب الرقم. ما رح نفرجيك شو المفروض يكون في — عشان العدّة تطلع صحيحة.',
     sready_group:'في مادة عأكتر من كومة — ضفنا الكومات التانية تبعها: {list}',
     go_ask:'روح عالكومة', arrived:'وصلت ✓', on_stack:'عليها {n} مواد',
+    also_on:'هالمادة كمان عالكومة {list} — عدّ بس يلي عهالكومة',
     map_loading:'عم نحمّل الخريطة…', map_fail:'الخريطة ما انحمّلت — دوّر عالرقم {n} المكتوب عالأرض',
     sc_ask:'قدّيش في عهالكومة؟', sc_part:'مادة {a} من {b} عهالكومة',
     not_here:'المادة مو عهالكومة', not_here_short:'مو هون',
@@ -529,8 +534,10 @@ const DICT = {
     p_none:'No problems ✓', mgr_only:'This screen is for managers',
     var_expected:'Expected', var_counted:'Counted', var_diff:'Difference',
     res_ask:'What happened?',
+    res_transfer:'Booked on the office warehouse',
     res_miscount:'Miscount', res_bill:'Bill missing in Al-Ameen', res_damaged:'Damaged',
     res_missing:'Missing', res_adjust:'Adjustment', res_save:'Record the decision', res_done:'Recorded ✓',
+    res_needs_paste:'This reason is new and the database does not know it yet — phase33_stack_warehouse.sql has to be pasted again',
     neg_qty:'Quantity', store_word:'Warehouse', items_word:'{n} items', value_word:'worth',
     value_floor:'at least', of_which:'{n} of them with no rack',
     loading:'Loading…', retry:'Try again', err:'Something went wrong',
@@ -551,6 +558,7 @@ const DICT = {
     sready_how:'We will take you stack by stack. Count what is on it and type the number. We never show you what it should be — that is what makes the count real.',
     sready_group:'An item sits on more than one stack — its other stacks were added: {list}',
     go_ask:'Go to stack', arrived:'I am here ✓', on_stack:'{n} items on it',
+    also_on:'This item is also on stack {list} — count only what is on this one',
     map_loading:'Loading the map…', map_fail:'The map did not load — look for number {n} on the floor',
     sc_ask:'How many are on this stack?', sc_part:'Item {a} of {b} on this stack',
     not_here:'The item is not on this stack', not_here_short:'Not here',
@@ -1482,7 +1490,6 @@ SCREENS.problist = {
     const k = S.probKind;
     if(k === 'var'){
       const rows = S.openVar || [];
-      const RES = ['miscount','bill','damaged','missing','adjust'];
       // ⚠ D3 (28 Sep, round 2): phase33's guard lets only an APPROVER set a reason, in
       // EVERY warehouse, and an approved rack difference becomes a ⚖️ card for Qusay.
       // The page matches the server: everyone else sees the rows read-only, with why.
@@ -1506,7 +1513,7 @@ SCREENS.problist = {
             <span class="figure ${d<0?'bad':'good'}">${d<0?'−':'+'}${ltr(Math.abs(d))}</span></div>
           <div class="rowsub">${esc(r.store)} · ${ltr(r.code)} · ${t('var_expected')} ${ltr(r.expected)} · ${t('var_counted')} ${ltr(r.recount != null ? r.recount : r.counted)}</div>
           ${canDecide ? `<div class="rowsub" style="margin-top:8px">${t('res_ask')}</div>
-          <div class="reschips">${RES.map((x)=>`<button class="res${e.kind===x?' on':''}" data-res="${esc(r.id)}" data-kind="${x}">${t('res_'+x)}</button>`).join('')}</div>
+          <div class="reschips">${resFor(r.store).map((x)=>`<button class="res${e.kind===x?' on':''}" data-res="${esc(r.id)}" data-kind="${x}">${t('res_'+x)}</button>`).join('')}</div>
           ${S.resErr[r.id] ? `<div class="note bad" style="margin:10px 0 0">${esc(S.resErr[r.id])}</div>` : ''}
           <button class="savebtn" data-save="${esc(r.id)}" ${e.kind?'':'disabled'}>${t('res_save')}</button>` : ''}
         </div>`;
@@ -1557,7 +1564,7 @@ SCREENS.problist = {
           render();
         }catch(err){
           // the server's own sentence («القرار للمسؤولين بس»), never a bare «ما قدرنا نحفظ»
-          S.resErr[id] = `${t('save_err')} — ${errText(err).slice(0,160)}`; render();
+          S.resErr[id] = resNeedsPaste(err) ? t('res_needs_paste') : `${t('save_err')} — ${errText(err).slice(0,160)}`; render();
         }
       };
     });
@@ -2003,6 +2010,21 @@ const wOpen = (e) => { const W = S.walk; return !W.skip.includes(e.code) && !W.s
 const wPending = (e) => wOpen(e) && !S.walk.vals[e.key];
 function wSkipAhead(){ const W = S.walk; while(W.pos < W.list.length && !wPending(W.list[W.pos])) W.pos++; }
 function wStacks(){ return [...new Set(S.walk.list.map((e)=> e.stack))]; }
+// what a counter must know on arriving at a stack (Qusay's answers, 28 Sep 2026): the
+// stack's own note — cartons labelled 9W for an item Al-Ameen calls 10W, the three
+// sizes an accessory stack holds — and, for an item a new batch pushed onto a second
+// stack, that THIS stack holds only part of it (count what is here; the other stack
+// comes later in the same walk). Static text and stack numbers only — never a
+// quantity: the blind rule.
+function stkNoteHtml(store, n){
+  const row = S.stk.rows.get(store).get(n) || {}, ix = S.stk.idx.get(store);
+  const others = [...new Set((ix.byStack.get(n) || []).flatMap((code)=> AU.stacksOfCode(ix.byCode, code)))]
+    .filter((x)=> x !== n).sort((a, b)=> a - b);
+  const lines = [];
+  if(row.note) lines.push(`📝 ${bdi(row.note)}`);
+  if(others.length) lines.push(`🔁 ${t('also_on', { list:stackList(others) })}`);
+  return lines.length ? `<div class="note stknote">${lines.map((l)=> `<div>${l}</div>`).join('')}</div>` : '';
+}
 function wCur(){
   const W = S.walk; if(!W) return null;
   if(W.re){
@@ -2418,6 +2440,7 @@ SCREENS.walk = {
         <p class="goask">${t('go_ask')} <span class="gn ltr">${esc(c.stack)}</span></p>
         ${miniMap(W.store, c.stack)}
         <p class="zone">📍 ${bdi(row.zone || '')}${nCodes > 1 && !c.re ? ` · ${t('on_stack',{ n:nCodes })}` : ''}</p>
+        ${stkNoteHtml(W.store, c.stack)}
         <button class="big hero" id="arrived">${t('arrived')}</button>
         <button class="quitlink" id="pause">${t('pause')}</button>`;
     }
@@ -2918,6 +2941,16 @@ const money = (v) => ltr(`${Number(v) < 0 ? '−' : ''}$${Math.abs(Number(v) || 
 const signed = (v) => { const d = Number(v || 0); return ltr(`${d < 0 ? '−' : '+'}${Math.abs(d)}`); };
 // stack numbers each isolated, so a list reads in the line's own order (Arabic: first on the right)
 const stackList = (nos) => nos.map((n)=> ltr(n)).join(' · ');
+// the approver's «شو صار؟». 'transfer' leads: a shortage in a stack warehouse is, as a
+// rule, goods booked on مستودع المكتب without anyone telling Qusay (his answer, 28 Sep
+// 2026) — the ⚖️ card then asks him for a نقلة, never a cost output. phase33 must know
+// every kind listed here (stock_counts_resolution_kind_check).
+const RESOLUTIONS = ['transfer','miscount','bill','damaged','missing','adjust'];
+const TRANSFER_STORE = 'مستودع المكتب';   // Al-Ameen's store name, VERBATIM
+// a count IN مستودع المكتب cannot be «booked on مستودع المكتب» — that one reason goes
+const resFor = (store) => RESOLUTIONS.filter((x)=> !(x === 'transfer' && store === TRANSFER_STORE));
+// a reason saved before the phase33 re-paste that taught the database this kind
+const resNeedsPaste = (e) => /resolution_kind_check/.test(String((e && e.message) || e || ''));
 const LEDK = { approve:'to_approve', held:'held', post:'to_post', unver:'unverified' };
 SCREENS.ledger = {
   back:true, title:()=>t('led_title'),
@@ -2981,11 +3014,10 @@ SCREENS.ledlist = {
     const L = S.led, k = S.ledKind;
     const head = `<p class="ask">${t('led_'+k)}</p>${t('led_'+k+'_sub') !== 'led_'+k+'_sub' ? `<p class="askwhy">${t('led_'+k+'_sub')}</p>` : ''}${msgHtml()}`;
     if(k === 'approve'){
-      const RES = ['miscount','bill','damaged','missing','adjust'];
       const rows = L.rows.filter((r)=> r.state === 'to_approve');
       return head + (rows.map((r)=>{ const e = S.res[r.id] || {};
         return ledRowHtml(r, `<div class="rowsub" style="margin-top:8px">${t('res_ask')}</div>
-          <div class="reschips">${RES.map((x)=> `<button class="res tall${e.kind === x ? ' on' : ''}" data-res="${esc(r.id)}" data-kind="${x}">${t('res_'+x)}</button>`).join('')}</div>
+          <div class="reschips">${resFor(r.store).map((x)=> `<button class="res tall${e.kind === x ? ' on' : ''}" data-res="${esc(r.id)}" data-kind="${x}">${t('res_'+x)}</button>`).join('')}</div>
           <button class="savebtn tall" data-save="${esc(r.id)}" ${e.kind ? '' : 'disabled'}>${t('res_save')}</button>`); }).join('')
         || `<div class="note good">${t('led_empty')}</div>`);
     }
@@ -3040,7 +3072,8 @@ SCREENS.ledlist = {
         // the reason is written as a PAIR: the label Qusay reads, and the kind the server keys on
         act(b, ()=> rest(`stock_counts?id=eq.${enc(id)}`, { method:'PATCH', body: JSON.stringify({
           resolution: DICT.ar['res_' + e.kind], resolution_kind: e.kind,
-          resolved_by: me().name, resolved_at: new Date().toISOString() }) })); };
+          resolved_by: me().name, resolved_at: new Date().toISOString() }) })
+          .catch((err)=>{ throw resNeedsPaste(err) ? new Error(t('res_needs_paste')) : err; })); };
     });
     document.querySelectorAll('[data-held]').forEach((b)=>{
       b.onclick = ()=> act(b, ()=> rest(`stock_counts?id=eq.${enc(b.getAttribute('data-held'))}`,
