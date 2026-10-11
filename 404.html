@@ -114,6 +114,8 @@
   .storetag.mstag{background:var(--glow); border-color:var(--amber); color:#1C1813; font-weight:600}
   .storetag.mstag b{color:#B36405}
   .chip.ms{border-color:#8A5A1C}
+  /* 📦 pieces per package — Al-Ameen's second unit («طرد» × N), Oct 2026 */
+  .storetag.packtag{border-color:#D9C9A6}
   .authbtn{background:none; border:1px solid #3a352e; border-radius:8px;
     padding:4px 9px; font-size:14px; cursor:pointer; color:inherit}
   .authcard{background:#1D1915; border:1px solid #3a352e; border-radius:14px;
@@ -270,6 +272,9 @@ const DICT = {
     ms_chip:"🪧 مساطر",
     ms_tag:"🪧 عند التجار",
     ms_pend:(n)=>`${n} قيد الإدخال`,
+    pack_size:(u,n,base)=>`${u} = ${n} ${base||"حبة"}`,
+    pack_stock:(s)=>`بالمخزون ${s}`,
+    pack_word:(p)=>p.unit||"طرد",
     ms_only:(c)=>`عم تشوف يلي طالع مساطر بس (${c}) — الأرقام من فواتير الأمين`,
     locale:"ar-SY",
   },
@@ -306,6 +311,9 @@ const DICT = {
     ms_chip:"🪧 Consignment",
     ms_tag:"🪧 At merchants",
     ms_pend:(n)=>`${n} not yet in Al-Ameen`,
+    pack_size:(u,n,base)=>`pack of ${n}${String(base||"").trim()==="متر"?" m":""}`,
+    pack_stock:(s)=>`in stock ${s}`,
+    pack_word:(p,n)=>n===1?"pack":"packs",
     ms_only:(c)=>`Showing items out on consignment only (${c}) — figures from Al-Ameen bills`,
     locale:"en-GB",
   },
@@ -628,6 +636,47 @@ async function fetchAll(){
   return attempt(COLS, SUPABASE_ANON_KEY);
 }
 
+/* 📦 pieces per package (Oct 2026). Qusay entered, for every Megaman and LEDs
+   C4 item, how many pieces one package holds — Al-Ameen's second unit
+   («طرد» × N), synced onto dashboard_items as pack_unit/pack_qty (+ pack2_* for
+   a bigger one). Public (anon may read it, sql/phase34_item_packs.sql) and read
+   in its OWN request so a missing column before the paste blanks nothing.
+   ⚠ The rules mirror the portal's src/packs.js — keep the two in step:
+   a factor of 1 is «one per box» (kept), the breakdown needs a package > 1. */
+let packMap = new Map();        // code -> {unit, qty, unit2?, qty2?}
+async function fetchPacksW(){
+  try{
+    const tk = await getToken();
+    const out = await restPages("dashboard_items?select=code,pack_unit,pack_qty,pack2_unit,pack2_qty&pack_qty=not.is.null",
+      tk || SUPABASE_ANON_KEY, 1000);
+    const m = new Map();
+    for(const r of out){
+      const q = Number(r.pack_qty);
+      if(!(q >= 1)) continue;
+      const p = { unit:String(r.pack_unit||"").trim()||null, qty:q };
+      const q2 = Number(r.pack2_qty);
+      if(q2 > q){ p.unit2 = String(r.pack2_unit||"").trim()||null; p.qty2 = q2; }
+      m.set(r.code, p);
+    }
+    packMap = m;
+  }catch(e){ /* before the paste, or offline — no package line, nothing else changes */ }
+}
+const fmtPackN = v => Number(v).toLocaleString("en-US",{maximumFractionDigits:3});
+function packLineHtml(i){
+  const p = packMap.get(i.code);
+  if(!p) return "";
+  let html = escHtml(t("pack_size")(t("pack_word")(p, 1) , fmtPackN(p.qty), (i.unit||"").trim()));
+  if(lang==="ar" && p.qty2) html += " · " + escHtml(`${p.unit2||"كرتونة"} = ${fmtPackN(p.qty2)} ${(i.unit||"").trim()||"حبة"}`);
+  const n = Number(i.qty);
+  if(p.qty > 1 && n >= p.qty){
+    const whole = Math.floor((n + 1e-9) / p.qty);
+    const rest = Math.round((n - whole*p.qty)*1000)/1000;
+    const head = lang==="ar" ? `${fmtPackN(whole)} ${p.unit||"طرد"}` : `${fmtPackN(whole)} ${t("pack_word")(p, whole)}`;
+    html += " · " + escHtml(t("pack_stock")("")) + `<b>${escHtml(rest > 1e-9 ? `${head} + ${fmtPackN(rest)}` : head)}</b>`;
+  }
+  return `<div class="stores"><span class="storetag packtag">📦 ${html}</span></div>`;
+}
+
 /* shelf locations (item_locations, authenticated-only) — quiet when the
    table isn't migrated yet or the viewer isn't logged in */
 let itemLocs = {};              // code -> [{store, loc}]
@@ -942,7 +991,7 @@ function render(){
       <div class="info">
         <div class="name">${i.name || i.latin_name || i.code}</div>
         <div class="meta">${i.code}${i.latin_name ? " · "+i.latin_name : ""}</div>
-        ${branchLineHtml(i)}${storeLineHtml(i)}${masatirLineHtml(i)}
+        ${packLineHtml(i)}${branchLineHtml(i)}${storeLineHtml(i)}${masatirLineHtml(i)}
       </div>
       <div class="side">
         <div class="qty">${fmtQty(i.qty)}</div>
@@ -1087,6 +1136,7 @@ document.getElementById("sortpill").onclick = ()=>{
       fetchBranchList().catch(()=>{}),  // branch registry (multi-branch cards, quiet if absent)
       fetchAll(),
       fetchMasatir().catch(()=>{}),     // what is out on consignment (team-only, quiet)
+      fetchPacksW(),                    // pieces per package (public, quiet before the paste)
     ]);
     items = buildItemIndex(rows);
     // UNTRACKED sorts for dead-stock visibility; all other statuses keep lowest/negative-first

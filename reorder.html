@@ -116,6 +116,11 @@
   .pill.نفد{background:var(--out-bg); color:var(--out-tx)} .pill.حرج{background:var(--crit-bg); color:var(--crit-tx)}
   .pill.قريب{background:var(--soon-bg); color:var(--soon-tx)} .pill.proj{background:var(--proj-bg); color:var(--proj-tx)}
   td.sug{font-weight:700; font-size:15px}
+  td.sug .pk{font-size:11px; font-weight:600; color:var(--muted); white-space:nowrap; margin-top:2px}
+  .dl .pkd{font-size:11.5px; color:var(--muted); margin-top:3px}
+  .dl .pkd:empty{display:none}
+  .pkround{margin-inline-start:8px; font:inherit; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:7px;
+    border:1px solid #E2CB7A; background:var(--input); color:var(--ink); cursor:pointer}
   td.cost, td.val{color:#3E7A3E; font-weight:600}
   td.sup{color:#8A5A00; font-weight:600}
   .supsum{color:#8A5A00; font-size:12.5px; margin-top:2px}
@@ -371,6 +376,10 @@ const DICT = {
     fab:"الطلبية", d_ttl:"الطلبية", d_tot:(n,b)=>`${n} مادة · ${b} ماركة`, d_empty:"الطلبية فاضية — حدّد مواد من القائمة وضيفها.",
     d_all:"الكل", d_sum:"إجمالي الطلبية (كلفة)",
     d_sup:(n,m)=>`بسعر المورّد (${n} من ${m} مادة)`,
+    pk_size:(u,n)=>`${u} = ${n}`,
+    pk_split:(w,u,r)=> r ? `${w} ${u} + ${r}` : `= ${w} ${u}`,
+    pk_round:(w,u,q)=>`↑ ${w} ${u} = ${q}`,
+    pk_round_t:"كمّل لطرود كاملة",
     sup_note:(q,d)=>`سعر المورّد من عرض ${q} تاريخ ${d} — تسليم مستودعه (EXW)، بدون شحن وجمرك؛ الكلفة عالرف طلعت أعلى منه ~١٦٪ بالمتوسط.`, d_nocost:(n)=>`${n} بلا كلفة مسجّلة — مو محسوبة`,
     ex_zip_xlsx:"📗 Excel لكل ماركة", ex_zip_xlsx_s:"ملف لكل ماركة، بملف ZIP واحد", ex_zip_pdf:"📕 PDF لكل ماركة", ex_zip_pdf_s:"ملف لكل ماركة، بملف ZIP واحد",
     ex_full_xlsx:"📘 Excel — ملف واحد", ex_full_xlsx_s:"صفحة الخلاصة + ورقة لكل ماركة", ex_full_pdf:"📄 PDF — ملف واحد", ex_full_pdf_s:"للقراءة والطباعة",
@@ -417,6 +426,10 @@ const DICT = {
     fab:"Order", d_ttl:"Order draft", d_tot:(n,b)=>`${n} items · ${b} brand${b===1?"":"s"}`, d_empty:"The order is empty — select items from the list and add them.",
     d_all:"All", d_sum:"Order total (cost)",
     d_sup:(n,m)=>`at supplier prices (${n} of ${m} items)`,
+    pk_size:(u,n)=>`pack of ${n}`,
+    pk_split:(w,u,r)=>{ const p = w===1?"pack":"packs"; return r ? `${w} ${p} + ${r}` : `= ${w} ${p}`; },
+    pk_round:(w,u,q)=>`↑ ${w} ${w===1?"pack":"packs"} = ${q}`,
+    pk_round_t:"Round up to whole packs",
     sup_note:(q,d)=>`Supplier prices from quotation ${q} of ${d} — EXW at their warehouse, before freight and customs; landed cost has run ~16% above it.`, d_nocost:(n)=>`${n} without a recorded cost — not counted`,
     ex_zip_xlsx:"📗 Excel per brand", ex_zip_xlsx_s:"one file per brand, in one ZIP", ex_zip_pdf:"📕 PDF per brand", ex_zip_pdf_s:"one file per brand, in one ZIP",
     ex_full_xlsx:"📘 Excel — single file", ex_full_xlsx_s:"summary page + one sheet per brand", ex_full_pdf:"📄 PDF — single file", ex_full_pdf_s:"to read and print",
@@ -528,11 +541,50 @@ async function loadSupplier(tk){
   }catch(e){ SUP = new Map(); supMeta = null; }
 }
 const supUsd = (code)=>{ const r = SUP.get(code); return r && r.cost_usd!=null ? Number(r.cost_usd) : null; };
+
+/* 📦 pieces per package (Oct 2026) — Al-Ameen's second unit («طرد» × N), synced
+   onto dashboard_items (sql/phase34_item_packs.sql). Megaman and LEDs C4 come by
+   the carton, so the order is shown in cartons beside the pieces, and the draft
+   offers one tap to round a line UP to whole cartons. Display only: the engine
+   and its numbers are untouched (reorder_parity.mjs). Quiet before the paste. */
+let PACKS = new Map();
+async function loadPacks(tk){
+  try{
+    const rows = await paged("dashboard_items?select=code,pack_unit,pack_qty&pack_qty=not.is.null", tk);
+    PACKS = new Map(rows.filter(r=>Number(r.pack_qty) >= 1)
+      .map(r=>[r.code, { unit:String(r.pack_unit||"").trim()||null, qty:Number(r.pack_qty) }]));
+  }catch(e){ PACKS = new Map(); }
+}
+const pkUnit = (p)=> lang==="ar" ? (p.unit||"طرد") : "";
+function packSplitRO(n, p){
+  if(!p || !(p.qty > 1) || !(n > 0)) return null;
+  const whole = Math.floor((n + 1e-9) / p.qty);
+  const rest = Math.round((n - whole*p.qty)*1000)/1000;
+  return { whole, rest: rest > 1e-9 ? rest : 0 };
+}
+// under a quantity: «= 12 طرد» · «12 طرد + 10» · «طرد = 20» (below one carton)
+function packNote(n, code){
+  const p = PACKS.get(code), s = packSplitRO(n, p);
+  if(!s) return "";
+  const txt = s.whole < 1 ? t("pk_size")(pkUnit(p), fmtN(p.qty)) : t("pk_split")(fmtN(s.whole), pkUnit(p), s.rest ? fmtN(s.rest) : 0);
+  // ⚠ dir="auto": the cell is .num (direction:ltr), and inside an LTR line «4 طرد + 20»
+  // comes out «4 20 + طرد» — the Arabic word turns the 20 into an Arabic number and
+  // drags the «+» with it (caught on the screenshot, 11 Oct). The note sets its own.
+  return `<div class="pk" dir="auto">📦 ${escHtml(txt)}</div>`;
+}
+// in the draft: the same note for the quantity being ordered, plus the round-up
+function packDraftHtml(n, code){
+  const p = PACKS.get(code), s = packSplitRO(n, p);
+  if(!s) return "";
+  const note = s.whole < 1 ? t("pk_size")(pkUnit(p), fmtN(p.qty)) : t("pk_split")(fmtN(s.whole), pkUnit(p), s.rest ? fmtN(s.rest) : 0);
+  const up = s.rest ? `<button class="pkround" data-code="${escHtml(code)}" data-q="${(s.whole+1)*p.qty}" title="${escHtml(t("pk_round_t"))}">${escHtml(t("pk_round")(fmtN(s.whole+1), pkUnit(p), fmtN((s.whole+1)*p.qty)))}</button>` : "";
+  return `📦 ${escHtml(note)}${up}`;
+}
 async function loadItems(tk){
   // tracked = the sync's copy of settings.tracked → the «جديدة عاللستة» proxy
   items = await paged("dashboard_items?select=code,name,latin_name,unit,qty,brand,cost,tracked,synced_at,image_url", tk, 3000);
   syncedAt = items.reduce((m,i)=> i.synced_at>m ? i.synced_at : m, "");
-  await loadSupplier(tk);
+  await Promise.all([loadSupplier(tk), loadPacks(tk)]);
 }
 // The bills are ~6k rows; the FOLDED per-code line lists are tiny, so those
 // are what gets cached (12h, same calendar day). Stock is always fetched live.
@@ -663,7 +715,7 @@ function renderTable(){
         <td class="num col-lo">${fmtN(r.demand,1)}</td>
         <td class="num col-lo">${fmtN(r.cover,1)}</td>
         <td><span class="pill ${r.urgency}">${t("urg")[r.urgency]}</span></td>
-        <td class="num sug">${fmtN(r.suggest)}</td>
+        <td class="num sug">${fmtN(r.suggest)}${packNote(r.suggest, r.code)}</td>
         <td class="num cost col-lo">${r.cost==null?"—":fmtN(r.cost,2)}</td>
         ${SUP.size?`<td class="num sup col-lo">${supUsd(r.code)==null?"—":fmtN(supUsd(r.code),2)}</td>`:""}
         <td class="num val">${r.value==null?"—":fmtUSD(r.value)}</td>
@@ -776,6 +828,7 @@ function draftLines(){
     if(p && !r) base.isProject = true;
     base.qtyOrder = Number(d.qty)||0;
     base.value = base.cost==null ? null : Math.round(base.qtyOrder*base.cost*100)/100;
+    base.pack = PACKS.get(code) || null;     // → the exports' note (RO.noteFor)
     out.push(base);
   }
   return out;
@@ -808,7 +861,7 @@ function renderDrawer(){
         <span class="ex"><button class="btn sm" data-ex="xlsx" data-brand="${escHtml(g.brand)}">📗 ${t("xlsx_one")}</button><button class="btn sm" data-ex="pdf" data-brand="${escHtml(g.brand)}">📕 ${t("pdf_one")}</button></span></div>
       ${g.lines.map(l=>`
       <div class="dl" data-code="${escHtml(l.code)}">
-        <div><div class="nm">${escHtml(l.name||l.ref||l.code)}</div><div class="mt">${escHtml(l.code)}${l.ref?" · "+escHtml(l.ref):""}</div>${flagsHtml({...l, code:"__"})}</div>
+        <div><div class="nm">${escHtml(l.name||l.ref||l.code)}</div><div class="mt">${escHtml(l.code)}${l.ref?" · "+escHtml(l.ref):""}</div>${flagsHtml({...l, code:"__"})}<div class="pkd" dir="auto">${packDraftHtml(l.qtyOrder, l.code)}</div></div>
         <div class="st">${t("st_qty")}<b class="num">${fmtQty(l.qty)}</b></div>
         <div class="st">${l.isProject?t("st_proj"):t("st_sug")}<b class="num">${fmtN(l.suggest)}</b></div>
         <input type="number" min="0" step="1" value="${l.qtyOrder}" data-code="${escHtml(l.code)}" aria-label="qty">
@@ -819,8 +872,16 @@ function renderDrawer(){
   $("dbody").querySelectorAll("input[type=number]").forEach(inp=>{
     inp.onchange = inp.oninput = ()=>{ const v=Math.max(0, Math.round(Number(inp.value)||0)); draft[inp.dataset.code].qty=v; saveDraft();
       const l = draftLines().find(x=>x.code===inp.dataset.code); const ln = inp.parentElement.querySelector(".ln"); if(l) ln.textContent = l.cost==null?"—":fmtUSD(v*l.cost);
+      const pkd = inp.parentElement.querySelector(".pkd"); if(pkd) pkd.innerHTML = packDraftHtml(v, inp.dataset.code);
       refreshDrawerTotals(); };
   });
+  // one tap: this line, rounded UP to whole cartons (never down — a short order is the costly one)
+  // assigned, not added: renderDrawer runs on every change and must not stack handlers
+  $("dbody").onclick = (e)=>{
+    const b = e.target.closest(".pkround"); if(!b) return;
+    const inp = b.closest(".dl")?.querySelector("input[type=number]"); if(!inp) return;
+    inp.value = b.dataset.q; inp.oninput();
+  };
   $("dbody").querySelectorAll(".rm").forEach(b=>b.onclick=()=>{ delete draft[b.dataset.code]; saveDraft(); toast(t("removed")); renderDrawer(); renderTable(); });
   $("dbody").querySelectorAll("button[data-ex]").forEach(b=>b.onclick=()=> exportBrand(b.dataset.brand, b.dataset.ex));
   ["ex-zip-xlsx","ex-zip-pdf","ex-full-xlsx","ex-full-pdf"].forEach(id=>{ const k=id.replace(/-/g,"_"); $(id).innerHTML = `${t(k)}<small>${t(k+"_s")}</small>`; $(id).disabled = !lines.length; });

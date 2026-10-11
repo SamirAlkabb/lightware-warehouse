@@ -215,6 +215,17 @@ const RO = (() => {
   const billWord = (n) => n === 1 ? 'فاتورة وحدة' : n === 2 ? 'فاتورتين' : `${n} فواتير`
   function noteFor(r) {
     const note = []
+    // pieces per package (Oct 2026): the page attaches `pack` ({unit, qty}) to a
+    // DRAFT line, and the order in cartons rides the note — FIRST, so the PDF's
+    // clipped flags line never loses it, and in the note so no Excel column moves
+    // (the summary sheet addresses the brand sheets' columns by letter)
+    const p = r.pack, q = Number(r.qtyOrder != null ? r.qtyOrder : r.suggest)
+    if (p && Number(p.qty) > 1 && q > 0) {
+      const whole = Math.floor((q + 1e-9) / p.qty)
+      const rest = Math.round((q - whole * p.qty) * 1000) / 1000
+      const u = p.unit || 'طرد'
+      note.push(whole < 1 ? `${u} = ${p.qty}` : `${whole} ${u}${rest > 1e-9 ? ` + ${rest}` : ''} (${u} = ${p.qty})`)
+    }
     if (r.isProject) note.push('مشروع')
     if (r.newToList) note.push('جديدة عاللستة')
     if (r.seasonal) note.push('موسمي')
