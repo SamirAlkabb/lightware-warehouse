@@ -258,7 +258,8 @@ const DICT = {
     no_results:"ما في نتائج. جرّب كلمة تانية أو كود تاني.",
     more_rows:(n)=>`في ${n} صنف كمان — ضيّق البحث لتشوفن.`,
     cover:(m)=>`تغطية ${m} شهر`,
-    cost:(v)=>`كلفة $${v}`,
+    cost:(v)=>`كلفة ${v}`,
+    stock_val:(v)=>`قيمة ${v}`,
     last_sync:"آخر تحديث",
     stale:(h)=>`⚠ الأرقام مو محدّثة — آخر مزامنة قبل ${h} ساعات. شيك على كمبيوتر قصي (sync_log.txt).`,
     load_err:"ما قدرنا نوصل للبيانات.<br>تأكد من الإنترنت ومن إعدادات الرابط والمفتاح.",
@@ -297,7 +298,8 @@ const DICT = {
     no_results:"No results. Try another word or code.",
     more_rows:(n)=>`${n} more item${n===1?"":"s"} — narrow the search to see them.`,
     cover:(m)=>`${m} months cover`,
-    cost:(v)=>`cost $${v}`,
+    cost:(v)=>`cost ${v}`,
+    stock_val:(v)=>`value ${v}`,
     last_sync:"Updated",
     stale:(h)=>`⚠ Numbers are stale — last sync ${h}h ago. Check Qusay's PC (sync_log.txt).`,
     load_err:"Couldn't reach the data.<br>Check the internet and the URL/key settings.",
@@ -745,13 +747,30 @@ function storeLineHtml(i){
 }
 
 function fmtQty(q){ return Number.isInteger(q) ? q : q.toFixed(1); }
+// «$1,200.00» as one LTR isolate: bare after an Arabic label, the digits
+// resolve as Arabic numbers and the «$» lands on the far side («1,200.00$»).
+function usdHtml(n){
+  return `<span dir="ltr">$${Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;
+}
 
 // Dead-stock visibility: within the UNTRACKED group ONLY, float items that have
-// physical stock (qty>0) to the top — biggest pile first — before the 0s/negatives.
+// physical stock (qty>0) to the top — the most money on the shelf first
+// (qty × cost; Samir, 16 Oct 2026 — it was biggest pile first) — before the
+// 0s/negatives. ⚠ `cost` is a team-only column: a row without one has no value
+// to rank by and none is guessed — unvalued rows follow the valued ones,
+// biggest pile first, so signed out (no cost anywhere) the order is by quantity.
+function stockValue(i){
+  return i.qty > 0 && i.cost > 0 ? Number(i.qty) * Number(i.cost) : null;
+}
 function untrackedRank(a,b){
   const aPos = a.qty > 0, bPos = b.qty > 0;
   if(aPos !== bPos) return aPos ? -1 : 1;   // positive stock before zero/negative
-  if(aPos) return b.qty - a.qty;            // both positive -> highest qty first
+  if(aPos){
+    const av = stockValue(a), bv = stockValue(b);
+    if((av!=null) !== (bv!=null)) return av!=null ? -1 : 1;   // valued before unvalued
+    if(av!=null && bv!==av) return bv - av;  // both valued -> most money first
+    return b.qty - a.qty;                    // tie / both unvalued -> highest qty first
+  }
   return a.qty - b.qty;                      // both <=0 -> unchanged (lowest first)
 }
 
@@ -1000,7 +1019,9 @@ function render(){
         ${i.months_cover!=null && i.status!=="UNTRACKED"
           ? `<div class="cover">${t("cover")(i.months_cover)}</div>` : ""}
         ${i.cost!=null && i.cost>0
-          ? `<div class="cost">${t("cost")(Number(i.cost).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}))}</div>` : ""}
+          ? `<div class="cost">${t("cost")(usdHtml(i.cost))}</div>` : ""}
+        ${i.status==="UNTRACKED" && stockValue(i)!=null      /* what the dead-stock order ranks by */
+          ? `<div class="cost">${t("stock_val")(usdHtml(stockValue(i)))}</div>` : ""}
       </div>
     </div>`).join("");
   if(rows.length>400)
