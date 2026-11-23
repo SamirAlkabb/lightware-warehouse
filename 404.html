@@ -50,7 +50,10 @@
   .wordmark{font-size:16px; font-weight:300; letter-spacing:4px; color:#F2ECDF;
             white-space:nowrap; direction:ltr; unicode-bidi:embed}
   .wordmark .dot{color:var(--amber); font-weight:600; letter-spacing:0}
-  .sync{font-size:11px; color:#C9A871; text-align:left; direction:ltr}
+  /* the sync time has its own line under the wordmark row: inline beside four buttons it
+     wrapped into a 4-line column and overprinted «LIGHTWARE.» at phone width (seen 23 Nov 2026) */
+  .sync{font-size:11px; color:#C9A871; text-align:left; direction:ltr; margin-top:6px}
+  html[dir="ltr"] .sync{text-align:right}
 
   /* ---------- search ---------- */
   .searchwrap{padding:12px 16px 4px; background:#1C1813}
@@ -172,6 +175,81 @@
   }
   .sortpill.active { color: var(--amber); font-weight: 600; box-shadow: inset 0 0 0 1px var(--amber); }
   .sortpill:focus { outline: none; box-shadow: 0 0 0 2px var(--amber); }
+
+  /* ---------- «اختار ← نقلة / عرض سعر / مساطر» (23 Nov 2026) ----------
+     team login only. A circle on every card picks it; once one is picked, a tap
+     anywhere on a card picks or un-picks it (the thumb still zooms). The tray
+     at the foot carries the three documents; the sheet sets the quantities. */
+  .countrow{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 4px 10px}
+  .countrow .count{margin:0}
+  .selall{background:none; border:1px solid var(--line); border-radius:999px; padding:6px 12px;
+    font:inherit; font-size:12.5px; font-weight:600; color:#8A5A1C; cursor:pointer; white-space:nowrap}
+  .selall:active{background:var(--glow)}
+  .pick{flex:0 0 auto; width:44px; height:44px; margin:-8px -6px; padding:0; border:none; background:none;
+    cursor:pointer; display:flex; align-items:center; justify-content:center}
+  .pick .ring{width:28px; height:28px; border-radius:999px; border:2px solid #CDBFA6; background:#fff;
+    color:#fff; font-size:16px; font-weight:800; line-height:24px; text-align:center}
+  .item.picked{background:#FFF8EE; box-shadow:0 0 0 2px var(--amber), var(--shadow-1)}
+  .item.picked .pick .ring{background:var(--amber); border-color:#C9720A}
+  body.picking .item{cursor:pointer}
+  body.hastray main{padding-bottom:170px}
+  #tray{position:fixed; inset-inline:0; bottom:0; z-index:50; background:linear-gradient(180deg,#221D16,#1C1813);
+    color:var(--glow); padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    box-shadow:0 -4px 18px rgba(28,24,19,.28); border-top:1px solid rgba(232,135,11,.35)}
+  #tray[hidden]{display:none}
+  .trayin{max-width:640px; margin:0 auto}
+  .trayhead{display:flex; align-items:center; gap:8px; margin-bottom:8px}
+  .traycount{flex:1; min-width:0; display:flex; align-items:center; gap:6px; background:var(--chrome);
+    border:1px solid var(--chrome-line); color:var(--glow); border-radius:12px; padding:10px 12px;
+    font:inherit; font-size:15px; cursor:pointer; text-align:start}
+  .traycount b{color:var(--amber); font-size:17px}
+  .traycount .more{margin-inline-start:auto; color:#C9A871; font-size:13px; white-space:nowrap}
+  .trayx{flex:0 0 auto; width:44px; height:44px; border-radius:12px; border:1px solid var(--chrome-line);
+    background:var(--chrome); color:#CFC6B4; font-size:17px; cursor:pointer}
+  .trayacts{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .trayact{min-height:48px; border-radius:12px; border:none; cursor:pointer; font:inherit; font-size:15px;
+    font-weight:700; color:#211505; background:linear-gradient(180deg,#F09A22,var(--amber));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25); padding:6px 4px; line-height:1.2}
+  .trayact:active{transform:translateY(1px)}
+  .trayundo{display:flex; align-items:center; gap:8px; font-size:13px; color:#E6D9BF; line-height:1.4}
+  .trayundo span{flex:1; min-width:0}
+  .trayundo button{flex:0 0 auto; background:none; border:1px solid var(--chrome-line); color:var(--amber);
+    border-radius:999px; padding:7px 12px; font:inherit; font-size:13px; font-weight:700; cursor:pointer}
+  .sheetwrap{position:fixed; inset:0; z-index:90; background:rgba(20,17,13,.55); display:none;
+    align-items:flex-end; justify-content:center}
+  .sheetwrap.open{display:flex}
+  .sheet{background:var(--paper); width:100%; max-width:640px; max-height:88vh; display:flex; flex-direction:column;
+    border-radius:18px 18px 0 0; box-shadow:0 -10px 40px rgba(0,0,0,.35);
+    padding-bottom:env(safe-area-inset-bottom)}
+  .sheethead{display:flex; align-items:center; gap:8px; padding:14px 14px 10px; border-bottom:1px solid var(--line)}
+  .sheethead b{flex:1; font-size:16px}
+  .sheethead button{width:40px; height:40px; border-radius:999px; border:1px solid var(--line); background:#fff;
+    font-size:16px; cursor:pointer; color:var(--ink)}
+  .sheetlist{overflow-y:auto; padding:6px 12px; flex:1 1 auto}
+  .prow{display:flex; gap:10px; align-items:flex-start; padding:10px 2px; border-bottom:1px solid var(--line)}
+  .prow:last-child{border-bottom:none}
+  .prow .pthumb{width:40px; height:40px; border-radius:8px; object-fit:cover; border:1px solid var(--line);
+    background:#F4F0E8; flex:0 0 auto}
+  .prow .pinfo{flex:1; min-width:0}
+  .prow .pname{font-size:14px; font-weight:600; line-height:1.35; word-break:break-word}
+  .prow .pmeta{font-size:12px; color:var(--muted); margin-top:2px}
+  .prow.bad{background:#FFF1EE}
+  .pqty{display:flex; align-items:center; gap:6px; margin-top:8px; direction:ltr}
+  .pqty button{width:40px; height:40px; border-radius:10px; border:1px solid var(--line); background:#fff;
+    font-size:20px; font-weight:700; color:var(--ink); cursor:pointer; line-height:1}
+  .pqty input{width:72px; height:40px; border-radius:10px; border:1px solid var(--line); background:#fff;
+    font:inherit; font-size:16px; font-weight:700; text-align:center; color:var(--ink)}
+  .pqty input:focus{outline:none; border-color:var(--amber); box-shadow:0 0 0 2px rgba(232,135,11,.2)}
+  .prow.bad .pqty input{border-color:var(--red)}
+  /* ✕ sits at the far end of the row, never beside «+» (a mis-tap there deletes the line) */
+  .pqty .pdel{color:#9B3B2E; order:-1; margin-right:auto}
+  html[dir="ltr"] .pqty .pdel{order:9; margin-right:0; margin-left:auto}
+  .sheetfoot{padding:10px 12px 12px; border-top:1px solid var(--line); background:#FBF8F2}
+  .sheeterr{color:#9B3B2E; font-size:13px; font-weight:600; margin-bottom:8px}
+  .sheeterr:empty{display:none}
+  .sheethint{font-size:12.5px; color:var(--muted); margin-top:8px; line-height:1.5}
+  .sheetclear{display:block; margin:8px auto 0; background:none; border:none; color:var(--muted);
+    text-decoration:underline; font:inherit; font-size:13px; cursor:pointer; padding:8px}
 </style>
 </head>
 <body>
@@ -180,13 +258,13 @@
   <div class="brand">
     <span class="wordmark">LIGHTWARE<span class="dot">.</span></span>
     <span style="display:flex;align-items:center;gap:10px">
-      <span class="sync" id="sync">…</span>
       <a class="authbtn" id="auditbtn" href="audit.html" hidden style="text-decoration:none">📋</a>
       <a class="authbtn" id="reorderbtn" href="reorder.html" hidden style="text-decoration:none">📦</a>
       <button class="authbtn" id="langbtn">EN</button>
       <button class="authbtn" id="authbtn">🔒</button>
     </span>
   </div>
+  <div class="sync" id="sync">…</div>
 </header>
 
 <!-- team login — unlocks the cost column (authenticated-only in Supabase) -->
@@ -216,9 +294,13 @@
 <div class="chips" id="chips"></div>
 
 <main>
-  <div class="count" id="count"></div>
+  <div class="countrow"><div class="count" id="count"></div><button class="selall" id="selall" hidden></button></div>
   <div id="list"><div class="state">عم نحمّل البيانات…</div></div>
 </main>
+
+<!-- «اختار ← نقلة / عرض سعر / مساطر» — team login only (see the PICK block in the script) -->
+<div id="tray" hidden><div class="trayin" id="trayin"></div></div>
+<div class="sheetwrap" id="picksheet"><div class="sheet" id="sheet"></div></div>
 
 <div class="lightbox" id="lightbox">
   <button class="close" aria-label="إغلاق">✕</button>
@@ -277,6 +359,21 @@ const DICT = {
     pack_stock:(s)=>`بالمخزون ${s}`,
     pack_word:(p)=>p.unit||"طرد",
     ms_only:(c)=>`عم تشوف يلي طالع مساطر بس (${c}) — الأرقام من فواتير الأمين`,
+    audit_title:"الجرد",
+    pk_pick:"اختار", pk_unpick:"شيل من الاختيار",
+    pk_all:(n)=>`✓ اختار الظاهرين (${n})`, pk_none:"✕ شيل الظاهرين",
+    pk_count:"صنف مختار", pk_review:"الكميات ▴",
+    pk_clear:"امسح الاختيار",
+    pk_title:(n)=>`المواد المختارة (${n})`,
+    pk_stock:(q,u)=>`بالمخزون ${q}${u?" "+u:""}`,
+    pk_qty:"الكمية", pk_minus:"حبة أقل", pk_plus:"حبة زيادة", pk_del:"شيلها",
+    pk_nocat:"⚠ هالكود مو بالكتالوج",
+    pk_k:{transfer:"⇄ نقلة", quote:"🧾 عرض سعر", consign:"🪧 مساطر"},
+    pk_hint:"بيفتح البورتال ومعه هالمواد والكميات — الزبون والأسعار والمستودع بتكمّلن هنيك.",
+    pk_badqty:(names)=>`⚠ صحّح الكمية قبل ما تبعت: ${names}`,
+    pk_kn:{transfer:"نقلة", quote:"عرض سعر", consign:"مساطر"},
+    pk_sent:(n,k)=>`انبعت ${n} صنف عالبورتال — «${k}».`,
+    pk_undo:"↩ رجّعهن",
     locale:"ar-SY",
   },
   en: {
@@ -317,6 +414,21 @@ const DICT = {
     pack_stock:(s)=>`in stock ${s}`,
     pack_word:(p,n)=>n===1?"pack":"packs",
     ms_only:(c)=>`Showing items out on consignment only (${c}) — figures from Al-Ameen bills`,
+    audit_title:"Stock count",
+    pk_pick:"Select", pk_unpick:"Unselect",
+    pk_all:(n)=>`✓ Select all shown (${n})`, pk_none:"✕ Unselect shown",
+    pk_count:"selected", pk_review:"Quantities ▴",
+    pk_clear:"Clear selection",
+    pk_title:(n)=>`Selected items (${n})`,
+    pk_stock:(q,u)=>`in stock ${q}${u?" "+u:""}`,
+    pk_qty:"Qty", pk_minus:"One less", pk_plus:"One more", pk_del:"Remove",
+    pk_nocat:"⚠ This code is not in the catalogue",
+    pk_k:{transfer:"⇄ Transfer", quote:"🧾 Quote", consign:"🪧 Consignment"},
+    pk_hint:"Opens the portal with these items and quantities — finish the customer, prices and warehouse there.",
+    pk_badqty:(names)=>`⚠ Fix the quantity before sending: ${names}`,
+    pk_kn:{transfer:"transfer", quote:"quote", consign:"consignment"},
+    pk_sent:(n,k)=>`${n} item${n===1?"":"s"} sent to the portal as a ${k}.`,
+    pk_undo:"↩ Bring them back",
     locale:"en-GB",
   },
 };
@@ -947,6 +1059,214 @@ function rankSearch(pool,q,tiebreak){
 }
 /* ================== end search engine ================== */
 
+/* ==== PICK — «اختار ← نقلة / عرض سعر / مساطر» (Samir, 23 Nov 2026) ====
+   «In the warehouse portal it is easy to filter and choose from the items» — so
+   the choosing happens HERE, and the document is written on the order portal,
+   which already owns everything a document needs (the customer registry, the
+   warehouse chips, the price memory, the dup guard, the outbox, the receipt and
+   the quote PDF). This page writes nothing: «⇄ نقلة / 🧾 عرض سعر / 🪧 مساطر»
+   opens the portal's sales form with these codes and quantities in its cart and
+   the document type already chosen.
+
+   • Team login only (the public dashboard is unchanged).
+   • The selection is kept on this device (lw_dash_pick_v1) — a phone that evicts
+     the tab, a language flip or a reload never loses it.
+   • The link carries codes and quantities ONLY; the portal reads names, units
+     and pictures from its own catalogue and NAMES any code it does not know.
+   • ⚠ The encoder mirrors order-portal/src/whpick.js `decodePick` — EDIT BOTH.
+     whpick-test.mjs round-trips this function through that decoder.
+   • A sent selection is cleared, and kept for 30 minutes behind «↩ رجّعهن»: a
+     link that failed to open, or the same items wanted for a second document
+     (a quote today, the consignment tomorrow), costs one tap, not a re-pick. */
+const PORTAL_URL = "https://portal.lightwaresy.com/";
+const PICK_KEY = "lw_dash_pick_v1", PICK_SENT_KEY = "lw_dash_pick_sent_v1";
+const PICK_UNDO_MS = 30*60e3;
+const PICK_KINDS = ["transfer","quote","consign"];
+let picks = new Map();           // code -> quantity as typed (a string; parsed on send)
+let pickBad = new Set();         // codes whose quantity stopped a send
+let itemsByCode = new Map();
+let shownRows = [];              // the cards on screen — what «اختار الظاهرين» means
+const teamOn = ()=> !!savedAuth();
+function loadPicks(){
+  try{
+    const a = JSON.parse(localStorage.getItem(PICK_KEY) || "[]");
+    picks = new Map((Array.isArray(a) ? a : []).filter(r=>Array.isArray(r) && typeof r[0]==="string")
+      .map(([c,q])=>[c, String(q==null ? "" : q)]));
+  }catch{ picks = new Map(); }
+}
+function savePicks(){
+  try{ localStorage.setItem(PICK_KEY, JSON.stringify([...picks])); }catch{ /* private mode — this visit only */ }
+}
+function lastSent(){
+  try{
+    const s = JSON.parse(localStorage.getItem(PICK_SENT_KEY) || "null");
+    return s && Array.isArray(s.picks) && Date.now() - s.at < PICK_UNDO_MS ? s : null;
+  }catch{ return null; }
+}
+/* Arabic-Indic digits and the Arabic decimal comma, as a phone keyboard types them */
+function parseQty(s){
+  const v = String(s==null?"":s).trim().replace(/[٠-٩۰-۹]/g, d=>AR_DIGITS[d]||d).replace(/[٫,]/g,".");
+  if(!/^\d+(\.\d+)?$/.test(v)) return NaN;
+  return Number(v);
+}
+const fmtPickQty = q => String(+Number(q).toFixed(3));
+function togglePick(code){
+  if(picks.has(code)) { picks.delete(code); pickBad.delete(code); }
+  else picks.set(code, "1");
+  try{ localStorage.removeItem(PICK_SENT_KEY); }catch{}
+  savePicks(); syncPickMarks(); renderTray();
+}
+/* the cards on screen follow the selection without a full re-render (scroll, focus and
+   lazy images stay where they are) */
+function syncPickMarks(){
+  document.body.classList.toggle("picking", teamOn() && picks.size > 0);
+  document.querySelectorAll("#list .item[data-code]").forEach(el=>{
+    const on = picks.has(el.dataset.code);
+    el.classList.toggle("picked", on);
+    const b = el.querySelector(".pick");
+    if(b){ b.setAttribute("aria-pressed", on ? "true" : "false"); b.setAttribute("aria-label", t(on?"pk_unpick":"pk_pick"));
+      b.querySelector(".ring").textContent = on ? "✓" : ""; }
+  });
+  renderSelAll();
+}
+function renderSelAll(){
+  const b = document.getElementById("selall");
+  if(!teamOn() || !shownRows.length){ b.hidden = true; return; }
+  const all = shownRows.every(i=>picks.has(i.code));
+  b.hidden = false;
+  b.textContent = all ? t("pk_none") : t("pk_all")(shownRows.length);
+  b.onclick = ()=>{
+    if(all) for(const i of shownRows){ picks.delete(i.code); pickBad.delete(i.code); }
+    else for(const i of shownRows) if(!picks.has(i.code)) picks.set(i.code, "1");
+    try{ localStorage.removeItem(PICK_SENT_KEY); }catch{}
+    savePicks(); syncPickMarks(); renderTray();
+  };
+}
+const kindLabel = k => t("pk_k")[k];
+const actsHtml = () => `<div class="trayacts">${PICK_KINDS.map(k=>
+  `<button type="button" class="trayact" data-kind="${k}">${kindLabel(k)}</button>`).join("")}</div>`;
+function wireActs(root){
+  root.querySelectorAll(".trayact").forEach(b=> b.onclick = ()=> sendPick(b.dataset.kind));
+}
+function renderTray(){
+  const tray = document.getElementById("tray"), box = document.getElementById("trayin");
+  const sent = picks.size ? null : lastSent();
+  const show = teamOn() && (picks.size > 0 || !!sent);
+  tray.hidden = !show;
+  document.body.classList.toggle("hastray", show);
+  if(!show){ closeSheet(); return; }
+  if(!picks.size){
+    box.innerHTML = `<div class="trayundo"><span>${escHtml(t("pk_sent")(sent.picks.length, t("pk_kn")[sent.kind]))}</span>
+      <button type="button" id="tray-undo">${t("pk_undo")}</button>
+      <button type="button" class="trayx" id="tray-forget" aria-label="${escHtml(t("close"))}">✕</button></div>`;
+    document.getElementById("tray-undo").onclick = ()=>{
+      picks = new Map(sent.picks); savePicks();
+      try{ localStorage.removeItem(PICK_SENT_KEY); }catch{}
+      syncPickMarks(); renderTray();
+    };
+    document.getElementById("tray-forget").onclick = ()=>{
+      try{ localStorage.removeItem(PICK_SENT_KEY); }catch{}
+      renderTray();
+    };
+    return;
+  }
+  box.innerHTML = `<div class="trayhead">
+      <button type="button" class="traycount" id="tray-open">✓ <b>${picks.size}</b> ${t("pk_count")}<span class="more">${t("pk_review")}</span></button>
+      <button type="button" class="trayx" id="tray-clear" aria-label="${escHtml(t("pk_clear"))}" title="${escHtml(t("pk_clear"))}">✕</button>
+    </div>${actsHtml()}`;
+  document.getElementById("tray-open").onclick = openSheet;
+  document.getElementById("tray-clear").onclick = clearPicks;
+  wireActs(box);
+  if(document.getElementById("picksheet").classList.contains("open")) renderSheet();
+}
+function clearPicks(){
+  picks.clear(); pickBad.clear(); savePicks();
+  try{ localStorage.removeItem(PICK_SENT_KEY); }catch{}
+  syncPickMarks(); renderTray();
+}
+function openSheet(){ renderSheet(); document.getElementById("picksheet").classList.add("open"); }
+function closeSheet(){ document.getElementById("picksheet").classList.remove("open"); }
+function renderSheet(msg){
+  const sh = document.getElementById("sheet");
+  const rows = [...picks].map(([code, q])=>{
+    const i = itemsByCode.get(code);
+    const name = i ? (i.name || i.latin_name || code) : code;
+    return `<div class="prow${pickBad.has(code)?" bad":""}" data-code="${escHtml(code)}">
+      ${i && i.image_url ? `<img class="pthumb" src="${escHtml(i.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
+      <div class="pinfo">
+        <div class="pname">${escHtml(name)}</div>
+        <div class="pmeta"><span dir="ltr">${escHtml(code)}</span> · ${i ? escHtml(t("pk_stock")(fmtQty(i.qty), (i.unit||"").trim())) : t("pk_nocat")}</div>
+        ${i ? storeLineHtml(i) : ""}
+        <div class="pqty">
+          <button type="button" class="pminus" aria-label="${escHtml(t("pk_minus"))}">−</button>
+          <input type="text" inputmode="decimal" dir="ltr" aria-label="${escHtml(t("pk_qty"))}" value="${escHtml(q)}">
+          <button type="button" class="pplus" aria-label="${escHtml(t("pk_plus"))}">+</button>
+          <button type="button" class="pdel" aria-label="${escHtml(t("pk_del"))}" title="${escHtml(t("pk_del"))}">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+  sh.innerHTML = `<div class="sheethead"><b>${escHtml(t("pk_title")(picks.size))}</b>
+      <button type="button" id="sheet-close" aria-label="${escHtml(t("close"))}">✕</button></div>
+    <div class="sheetlist">${rows}</div>
+    <div class="sheetfoot"><div class="sheeterr" id="sheet-err">${msg ? escHtml(msg) : ""}</div>${actsHtml()}
+      <div class="sheethint">${t("pk_hint")}</div>
+      <button type="button" class="sheetclear" id="sheet-clear">${t("pk_clear")}</button></div>`;
+  document.getElementById("sheet-close").onclick = closeSheet;
+  document.getElementById("sheet-clear").onclick = ()=>{ clearPicks(); closeSheet(); };
+  wireActs(sh);
+  sh.querySelectorAll(".prow").forEach(row=>{
+    const code = row.dataset.code, inp = row.querySelector("input");
+    const step = d =>{
+      const v = parseQty(inp.value);
+      const n = Number.isFinite(v) ? Math.max(1, Math.round((v + d)*1000)/1000) : 1;
+      inp.value = fmtPickQty(n); picks.set(code, inp.value); pickBad.delete(code); row.classList.remove("bad"); savePicks();
+    };
+    row.querySelector(".pminus").onclick = ()=> step(-1);
+    row.querySelector(".pplus").onclick = ()=> step(+1);
+    inp.oninput = ()=>{ picks.set(code, inp.value); savePicks();
+      if(parseQty(inp.value) > 0){ pickBad.delete(code); row.classList.remove("bad"); } };
+    row.querySelector(".pdel").onclick = ()=>{
+      picks.delete(code); pickBad.delete(code); savePicks(); syncPickMarks();
+      if(!picks.size){ closeSheet(); renderTray(); } else { renderTray(); renderSheet(); }
+    };
+  });
+}
+/* ⚠ MIRROR of order-portal/src/whpick.js decodePick — base64url of UTF-8 JSON
+   {v:1, k:<kind>, i:[[code, qty], …], t:<ms>}. EDIT BOTH. */
+function encodePick(kind, entries){
+  const bytes = new TextEncoder().encode(JSON.stringify({ v:1, k:kind, i:entries, t:Date.now() }));
+  let bin = ""; for(const x of bytes) bin += String.fromCharCode(x);
+  return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function sendPick(kind){
+  if(!PICK_KINDS.includes(kind) || !picks.size) return;
+  // a quantity that is not a positive number stops the send, by NAME — never read as 1
+  pickBad = new Set([...picks].filter(([,q])=>!(parseQty(q) > 0)).map(([c])=>c));
+  if(pickBad.size){
+    const names = [...pickBad].map(c=>{ const i = itemsByCode.get(c); return i ? (i.name||i.latin_name||c) : c; });
+    openSheet(); renderSheet(t("pk_badqty")(names.join("، ")));
+    return;
+  }
+  const entries = [...picks].map(([c,q])=>[c, parseQty(q)]);
+  try{ localStorage.setItem(PICK_SENT_KEY, JSON.stringify({ at:Date.now(), kind, picks:[...picks] })); }catch{}
+  picks.clear(); savePicks(); saveState();
+  location.assign(PORTAL_URL + "#wh=" + encodePick(kind, entries));
+}
+/* one listener for every card, whatever render() painted */
+document.getElementById("list").addEventListener("click", e=>{
+  if(!teamOn()) return;
+  const card = e.target.closest(".item[data-code]");
+  if(!card) return;
+  if(e.target.closest(".pick")){ togglePick(card.dataset.code); return; }
+  if(e.target.closest(".thumb")) return;                 // the picture still zooms
+  if(picks.size > 0) togglePick(card.dataset.code);     // picking has started: the whole card is the target
+});
+document.getElementById("picksheet").addEventListener("click", e=>{ if(e.target.id === "picksheet") closeSheet(); });
+/* Safari brings the page back from its cache on «back» — the tray must say what is true now */
+window.addEventListener("pageshow", e=>{ if(e.persisted){ loadPicks(); syncPickMarks(); renderTray(); } });
+/* ==== END PICK ==== */
+
 /* the unusual-stock alert. Rendered from render() so it follows the language
    flip and the toggle with no second code path; a banner that only ever
    appeared at boot would go stale the moment someone switched to English. */
@@ -999,12 +1319,16 @@ function render(){
     rows = [...rows].sort((a,b)=> msTot(b)-msTot(a));
   saveState();
   document.getElementById("count").textContent = t("count")(rows.length);
+  shownRows = rows.slice(0,400);
   if(!rows.length){
     list.innerHTML = `<div class="state">${t("no_results")}</div>`;
+    syncPickMarks(); renderTray();
     return;
   }
-  list.innerHTML = rows.slice(0,400).map(i=>`
-    <div class="item ${i.status}">
+  const team = teamOn();
+  list.innerHTML = shownRows.map(i=>`
+    <div class="item ${i.status}${team && picks.has(i.code) ? " picked" : ""}" data-code="${escHtml(i.code)}">
+      ${team ? `<button type="button" class="pick" aria-pressed="${picks.has(i.code)}" aria-label="${escHtml(t(picks.has(i.code)?"pk_unpick":"pk_pick"))}"><span class="ring">${picks.has(i.code)?"✓":""}</span></button>` : ""}
       ${i.image_url ? `<img class="thumb" src="${i.image_url}" loading="lazy" alt=""
                             onclick="showLightbox('${i.image_url}')" onerror="this.remove()">` : ""}
       <div class="info">
@@ -1026,6 +1350,7 @@ function render(){
     </div>`).join("");
   if(rows.length>400)
     list.innerHTML += `<div class="state">${t("more_rows")(rows.length-400)}</div>`;
+  syncPickMarks(); renderTray();
 }
 
 function msTot(i){ const m = msItems.get(i.code); return m ? m.qty + m.pend : 0; }
@@ -1162,6 +1487,8 @@ document.getElementById("sortpill").onclick = ()=>{
     items = buildItemIndex(rows);
     // UNTRACKED sorts for dead-stock visibility; all other statuses keep lowest/negative-first
     items.sort(severityCmp);
+    itemsByCode = new Map(items.map(i=>[i.code, i]));
+    loadPicks();
     const latest = items.reduce((m,i)=> i.synced_at>m ? i.synced_at : m, "");
     if(latest){
       const d = new Date(latest);

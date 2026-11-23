@@ -328,7 +328,7 @@ const LANG_KEY = "lw_wh_lang";
    is something you could say out loud to someone standing at a rack. */
 const DICT = {
   ar:{
-    title:'الجرد', back:'رجوع',
+    title:'الجرد', back:'رجوع', exit_main:'رجوع لصفحة المستودع',
     /* login */
     login_ask:'سجّل دخولك', login_why:'استعمل نفس الإيميل والرمز تبع المستودع',
     login_go:'دخول', login_err:'الإيميل أو الرمز غلط',
@@ -480,7 +480,7 @@ const DICT = {
     cyc_gone_n:'الكومات {n} انشالت منها المواد اليوم — ما انعدّت',
   },
   en:{
-    title:'Stock count', back:'Back',
+    title:'Stock count', back:'Back', exit_main:'Back to the warehouse page',
     login_ask:'Sign in', login_why:'Same email and password as the warehouse app',
     login_go:'Sign in', login_err:'Wrong email or password',
     logout:'Sign out', logout_confirm:'Sign out?',
@@ -840,8 +840,16 @@ function render(){
   const ht = document.getElementById('htitle');
   ht.textContent = R.title ? R.title() : t('title');
   ht.dir = R.ltrTitle ? 'ltr' : '';
+  // the header arrow: one screen back inside the count, and — on the first screen,
+  // where there is nothing behind it here — back to the warehouse page itself
+  // (Samir, 23 Nov 2026: «there is no back button that takes you back to the main
+  // page»). `exit` marks those first screens; deeper ones keep their own back.
   const b = document.getElementById('back');
-  b.hidden = !R.back;
+  const exit = !R.back && !!R.exit;
+  b.hidden = !R.back && !exit;
+  b.dataset.exit = exit ? '1' : '';
+  b.setAttribute('aria-label', t(exit ? 'exit_main' : 'back'));
+  b.title = exit ? t('exit_main') : '';
   document.documentElement.lang = LANG; document.documentElement.dir = LANG==='ar'?'rtl':'ltr';
   document.getElementById('langbtn').textContent = LANG==='ar' ? 'EN' : 'ع';
   document.getElementById('back').textContent = LANG==='ar' ? '→' : '←';
@@ -855,7 +863,7 @@ const SCREENS = {};
 SCREENS.boot = { back:false, html:()=>`<div class="state">${t('loading')}</div>` };
 
 SCREENS.login = {
-  back:false, title:()=>t('login_ask'),
+  back:false, exit:true, title:()=>t('login_ask'),
   html:()=>`
     <p class="ask">${t('login_ask')}</p>
     <p class="askwhy">${t('login_why')}</p>
@@ -883,7 +891,7 @@ SCREENS.login = {
 
 /* ── home: three doors, nothing else ── */
 SCREENS.home = {
-  back:false, title:()=>t('title'),
+  back:false, exit:true, title:()=>t('title'),
   html(){
     // ⚠ W1 (round 3): a RACK draft on a warehouse that counts by STACKS is never resumable —
     // it would open HEAD's rack counter there (no stacks, no pick attribution, no hold: a
@@ -3108,7 +3116,10 @@ SCREENS.ledlist = {
 };
 
 /* ───────────────────────── boot ───────────────────────── */
-document.getElementById('back').onclick = back;
+document.getElementById('back').onclick = ()=>{
+  if(document.getElementById('back').dataset.exit === '1'){ location.href = 'index.html'; return; }
+  back();
+};
 document.getElementById('langbtn').onclick = ()=>{
   LANG = LANG === 'ar' ? 'en' : 'ar';
   try{ localStorage.setItem(LANG_KEY, LANG); }catch{}
