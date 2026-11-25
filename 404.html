@@ -250,6 +250,36 @@
   .sheethint{font-size:12.5px; color:var(--muted); margin-top:8px; line-height:1.5}
   .sheetclear{display:block; margin:8px auto 0; background:none; border:none; color:var(--muted);
     text-decoration:underline; font:inherit; font-size:13px; cursor:pointer; padding:8px}
+  /* «ورجيني كمان» — the end of the opened part of the list (25 Nov 2026) */
+  .morebar{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px;
+    padding:18px 8px 28px; color:var(--muted); font-size:13.5px;
+    overflow-anchor:none}   /* never the scroll anchor: new cards go in above it, the page must not follow it down */
+  .morebar span{flex-basis:100%; text-align:center}
+  .morebar button{min-height:46px; border-radius:999px; border:1px solid var(--line); background:var(--card);
+    color:#8A5A1C; font:inherit; font-size:14.5px; font-weight:700; padding:8px 18px; cursor:pointer}
+  .morebar .mnext{border:none; color:#211505; background:linear-gradient(180deg,#F09A22,var(--amber));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+  .listend{text-align:center; color:var(--muted); font-size:13px; padding:16px 8px 24px}
+  /* «⬇ تصدير» — the selection as a file (25 Nov 2026) */
+  .trayex{flex:0 0 auto; height:44px; border-radius:12px; border:1px solid rgba(232,135,11,.55);
+    background:var(--chrome); color:var(--amber); font:inherit; font-size:14px; font-weight:700;
+    padding:0 12px; cursor:pointer; white-space:nowrap}
+  .sheetex{display:block; width:100%; margin-top:10px; min-height:44px; border-radius:12px; border:1px solid var(--line);
+    background:#fff; color:#8A5A1C; font:inherit; font-size:14px; font-weight:700; cursor:pointer}
+  .exbody{padding:12px 14px 14px; overflow-y:auto}
+  .exopt{display:flex; align-items:flex-start; gap:12px; padding:12px; margin-bottom:8px; border:1px solid var(--line);
+    border-radius:12px; background:#fff; cursor:pointer}
+  .exopt input{width:22px; height:22px; margin:1px 0 0; accent-color:var(--amber); flex:0 0 auto}
+  .exopt span{display:flex; flex-direction:column; gap:2px; font-size:15px}
+  .exopt small{font-size:12.5px; color:var(--muted)}
+  .exsafe{font-size:12.5px; color:var(--muted); margin:4px 2px 12px}
+  .exbtns{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .exgo{min-height:52px; border-radius:12px; border:none; cursor:pointer; font:inherit; font-size:15.5px; font-weight:700;
+    color:#211505; background:linear-gradient(180deg,#F09A22,var(--amber)); box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+  .exgo:disabled,.sheetclear:disabled{opacity:.5; cursor:progress}
+  .exmsg{font-size:13px; color:#3E6B2C; font-weight:600; margin-top:10px; line-height:1.5; word-break:break-word; white-space:pre-line}
+  .exmsg:empty{display:none}
+  .exmsg.bad{color:#9B3B2E}
 </style>
 </head>
 <body>
@@ -338,7 +368,10 @@ const DICT = {
     lang_btn:"EN",
     count:(n)=>`${n} صنف`,
     no_results:"ما في نتائج. جرّب كلمة تانية أو كود تاني.",
-    more_rows:(n)=>`في ${n} صنف كمان — ضيّق البحث لتشوفن.`,
+    shown_of:(a,n)=>`عم تشوف ${a} من ${n} صنف`,
+    more_next:(k)=>`⬇ ورجيني ${k} كمان`,
+    more_all:(n)=>`عرض الكل (${n})`,
+    list_end:(n)=>`هيك خلصت القائمة — ${n} صنف.`,
     cover:(m)=>`تغطية ${m} شهر`,
     cost:(v)=>`كلفة ${v}`,
     stock_val:(v)=>`قيمة ${v}`,
@@ -361,7 +394,7 @@ const DICT = {
     ms_only:(c)=>`عم تشوف يلي طالع مساطر بس (${c}) — الأرقام من فواتير الأمين`,
     audit_title:"الجرد",
     pk_pick:"اختار", pk_unpick:"شيل من الاختيار",
-    pk_all:(n)=>`✓ اختار الظاهرين (${n})`, pk_none:"✕ شيل الظاهرين",
+    pk_all:(n)=>`✓ اختار كل النتائج (${n})`, pk_none:"✕ شيل كل النتائج",
     pk_count:"صنف مختار", pk_review:"الكميات ▴",
     pk_clear:"امسح الاختيار",
     pk_title:(n)=>`المواد المختارة (${n})`,
@@ -374,6 +407,22 @@ const DICT = {
     pk_kn:{transfer:"نقلة", quote:"عرض سعر", consign:"مساطر"},
     pk_sent:(n,k)=>`انبعت ${n} صنف عالبورتال — «${k}».`,
     pk_undo:"↩ رجّعهن",
+    pk_toomany:(n,max)=>`⚠ السند الواحد لحد ${max} صنف، وهون ${n}. قسّم الاختيار، أو نزّلهن Excel.`,
+    ex_btn:"⬇ تصدير", ex_title:(n)=>`⬇ تصدير ${n} صنف`,
+    ex_pdf:"📄 PDF بالصور", ex_xlsx:"📊 Excel",
+    ex_qty:"الكميات المطلوبة", ex_qty_hint:"الكمية اللي حاططها لكل صنف",
+    ex_int:"المخزون والمستودعات", ex_int_hint:"نسخة داخلية — ما بتنبعت لزبون",
+    ex_safe:"بأي حال الملف ما فيه كلفة ولا أسعار.",
+    ex_back:"↩ رجوع للكميات",
+    ex_imgs:(a,n)=>`عم حضّر الصور ${a} من ${n}…`, ex_pages:(n)=>`عم ركّب ${n} صفحة…`, ex_xl:"عم ركّب الملف…",
+    ex_done:(f)=>`✓ نزل الملف: ${f}`, ex_noimg:(n)=>`⚠ ${n} صورة ما حملت — طلعت بلا صورة.`,
+    ex_pdfmax:(n,max)=>`⚠ الـPDF لحد ${max} صنف، وهون ${n}. نزّلهن Excel، أو ضيّق الاختيار.`,
+    ex_nocat:(c)=>`⚠ هالرموز مو بالكتالوج: ${c} — شيلهن قبل التصدير.`,
+    ex_fail:(m)=>`⚠ ما زبط التصدير: ${m}`,
+    doc:{ title:"قائمة مواد", n:(n)=>`${n} صنف`, num:"#", code:"الرمز", name:"المادة", ref:"المرجع", brand:"الماركة",
+      unit:"الوحدة", qty:"الكمية", stock:"الموجود", stores:"بالمستودعات", noimg:"بلا صورة", sheet:"المواد",
+      internal:"نسخة داخلية — فيها المخزون · ما بتنبعت لزبون", synced:(s)=>`المخزون حتى ${s}`,
+      contact:"واتساب المبيعات", file:"قائمة مواد", file_int:"قائمة مواد (داخلي)", total:(n)=>`المجموع ${n} صنف`, cont:"تابع" },
     locale:"ar-SY",
   },
   en: {
@@ -393,7 +442,10 @@ const DICT = {
     lang_btn:"ع",
     count:(n)=>`${n} item${n===1?"":"s"}`,
     no_results:"No results. Try another word or code.",
-    more_rows:(n)=>`${n} more item${n===1?"":"s"} — narrow the search to see them.`,
+    shown_of:(a,n)=>`Showing ${a} of ${n} items`,
+    more_next:(k)=>`⬇ Show ${k} more`,
+    more_all:(n)=>`Show all (${n})`,
+    list_end:(n)=>`End of the list — ${n} items.`,
     cover:(m)=>`${m} months cover`,
     cost:(v)=>`cost ${v}`,
     stock_val:(v)=>`value ${v}`,
@@ -416,7 +468,7 @@ const DICT = {
     ms_only:(c)=>`Showing items out on consignment only (${c}) — figures from Al-Ameen bills`,
     audit_title:"Stock count",
     pk_pick:"Select", pk_unpick:"Unselect",
-    pk_all:(n)=>`✓ Select all shown (${n})`, pk_none:"✕ Unselect shown",
+    pk_all:(n)=>`✓ Select all results (${n})`, pk_none:"✕ Unselect all results",
     pk_count:"selected", pk_review:"Quantities ▴",
     pk_clear:"Clear selection",
     pk_title:(n)=>`Selected items (${n})`,
@@ -429,6 +481,22 @@ const DICT = {
     pk_kn:{transfer:"transfer", quote:"quote", consign:"consignment"},
     pk_sent:(n,k)=>`${n} item${n===1?"":"s"} sent to the portal as a ${k}.`,
     pk_undo:"↩ Bring them back",
+    pk_toomany:(n,max)=>`⚠ One document takes up to ${max} items — this is ${n}. Split the selection, or export it to Excel.`,
+    ex_btn:"⬇ Export", ex_title:(n)=>`⬇ Export ${n} item${n===1?"":"s"}`,
+    ex_pdf:"📄 PDF with pictures", ex_xlsx:"📊 Excel",
+    ex_qty:"Requested quantities", ex_qty_hint:"the quantity set on each item",
+    ex_int:"Stock and warehouses", ex_int_hint:"internal copy — not for customers",
+    ex_safe:"Never any cost or price in the file.",
+    ex_back:"↩ Back to quantities",
+    ex_imgs:(a,n)=>`Preparing pictures ${a} of ${n}…`, ex_pages:(n)=>`Building ${n} page${n===1?"":"s"}…`, ex_xl:"Building the file…",
+    ex_done:(f)=>`✓ Saved: ${f}`, ex_noimg:(n)=>`⚠ ${n} picture${n===1?"":"s"} did not load — printed without one.`,
+    ex_pdfmax:(n,max)=>`⚠ The PDF takes up to ${max} items — this is ${n}. Export it to Excel, or narrow the selection.`,
+    ex_nocat:(c)=>`⚠ Not in the catalogue: ${c} — remove them before exporting.`,
+    ex_fail:(m)=>`⚠ Export failed: ${m}`,
+    doc:{ title:"Item list", n:(n)=>`${n} item${n===1?"":"s"}`, num:"#", code:"Code", name:"Item", ref:"Reference", brand:"Brand",
+      unit:"Unit", qty:"Qty", stock:"In stock", stores:"Warehouses", noimg:"no picture", sheet:"Items",
+      internal:"Internal copy — includes stock · not for customers", synced:(s)=>`stock as of ${s}`,
+      contact:"Sales WhatsApp", file:"Item list", file_int:"Item list (internal)", total:(n)=>`Total ${n} item${n===1?"":"s"}`, cont:"continued" },
     locale:"en-GB",
   },
 };
@@ -619,7 +687,7 @@ const STATE_KEY = "lw_dash_state_v1";
 function saveState(){
   try { localStorage.setItem(STATE_KEY, JSON.stringify({
     q: query, brand: activeBrand, status: activeFilter, sort: sortMode, ms: onlyMasatir,
-    scroll: window.scrollY, ts: Date.now(),
+    n: shownN, scroll: window.scrollY, ts: Date.now(),
   })); } catch {}
 }
 function loadState(){
@@ -1082,10 +1150,11 @@ const PORTAL_URL = "https://portal.lightwaresy.com/";
 const PICK_KEY = "lw_dash_pick_v1", PICK_SENT_KEY = "lw_dash_pick_sent_v1";
 const PICK_UNDO_MS = 30*60e3;
 const PICK_KINDS = ["transfer","quote","consign"];
+const PICK_MAX_SEND = 1000;      // ⚠ = order-portal/src/whpick.js WH_MAX_LINES
 let picks = new Map();           // code -> quantity as typed (a string; parsed on send)
 let pickBad = new Set();         // codes whose quantity stopped a send
 let itemsByCode = new Map();
-let shownRows = [];              // the cards on screen — what «اختار الظاهرين» means
+let shownRows = [];              // the cards opened so far (viewRows = every result; «اختار كل النتائج» means those)
 const teamOn = ()=> !!savedAuth();
 function loadPicks(){
   try{
@@ -1131,13 +1200,13 @@ function syncPickMarks(){
 }
 function renderSelAll(){
   const b = document.getElementById("selall");
-  if(!teamOn() || !shownRows.length){ b.hidden = true; return; }
-  const all = shownRows.every(i=>picks.has(i.code));
+  if(!teamOn() || !viewRows.length){ b.hidden = true; return; }
+  const all = viewRows.every(i=>picks.has(i.code));
   b.hidden = false;
-  b.textContent = all ? t("pk_none") : t("pk_all")(shownRows.length);
+  b.textContent = all ? t("pk_none") : t("pk_all")(fmtN(viewRows.length));
   b.onclick = ()=>{
-    if(all) for(const i of shownRows){ picks.delete(i.code); pickBad.delete(i.code); }
-    else for(const i of shownRows) if(!picks.has(i.code)) picks.set(i.code, "1");
+    if(all) for(const i of viewRows){ picks.delete(i.code); pickBad.delete(i.code); }
+    else for(const i of viewRows) if(!picks.has(i.code)) picks.set(i.code, "1");
     try{ localStorage.removeItem(PICK_SENT_KEY); }catch{}
     savePicks(); syncPickMarks(); renderTray();
   };
@@ -1171,21 +1240,24 @@ function renderTray(){
     return;
   }
   box.innerHTML = `<div class="trayhead">
-      <button type="button" class="traycount" id="tray-open">✓ <b>${picks.size}</b> ${t("pk_count")}<span class="more">${t("pk_review")}</span></button>
+      <button type="button" class="traycount" id="tray-open">✓ <b>${fmtN(picks.size)}</b> ${t("pk_count")}<span class="more">${t("pk_review")}</span></button>
+      <button type="button" class="trayex" id="tray-export">${t("ex_btn")}</button>
       <button type="button" class="trayx" id="tray-clear" aria-label="${escHtml(t("pk_clear"))}" title="${escHtml(t("pk_clear"))}">✕</button>
     </div>${actsHtml()}`;
   document.getElementById("tray-open").onclick = openSheet;
+  document.getElementById("tray-export").onclick = openExport;
   document.getElementById("tray-clear").onclick = clearPicks;
   wireActs(box);
-  if(document.getElementById("picksheet").classList.contains("open")) renderSheet();
+  if(document.getElementById("picksheet").classList.contains("open") && !exBusy) (sheetView === "export" ? renderExport() : renderSheet());
 }
 function clearPicks(){
   picks.clear(); pickBad.clear(); savePicks();
   try{ localStorage.removeItem(PICK_SENT_KEY); }catch{}
   syncPickMarks(); renderTray();
 }
-function openSheet(){ renderSheet(); document.getElementById("picksheet").classList.add("open"); }
-function closeSheet(){ document.getElementById("picksheet").classList.remove("open"); }
+let sheetView = "list";          // "list" (quantities) | "export"
+function openSheet(){ sheetView = "list"; renderSheet(); document.getElementById("picksheet").classList.add("open"); }
+function closeSheet(){ if(exBusy) return; document.getElementById("picksheet").classList.remove("open"); }
 function renderSheet(msg){
   const sh = document.getElementById("sheet");
   const rows = [...picks].map(([code, q])=>{
@@ -1194,7 +1266,7 @@ function renderSheet(msg){
     return `<div class="prow${pickBad.has(code)?" bad":""}" data-code="${escHtml(code)}">
       ${i && i.image_url ? `<img class="pthumb" src="${escHtml(i.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
       <div class="pinfo">
-        <div class="pname">${escHtml(name)}</div>
+        <div class="pname"><bdi>${escHtml(name)}</bdi></div>
         <div class="pmeta"><span dir="ltr">${escHtml(code)}</span> · ${i ? escHtml(t("pk_stock")(fmtQty(i.qty), (i.unit||"").trim())) : t("pk_nocat")}</div>
         ${i ? storeLineHtml(i) : ""}
         <div class="pqty">
@@ -1211,8 +1283,10 @@ function renderSheet(msg){
     <div class="sheetlist">${rows}</div>
     <div class="sheetfoot"><div class="sheeterr" id="sheet-err">${msg ? escHtml(msg) : ""}</div>${actsHtml()}
       <div class="sheethint">${t("pk_hint")}</div>
+      <button type="button" class="sheetex" id="sheet-export">${t("ex_btn")} · PDF · Excel</button>
       <button type="button" class="sheetclear" id="sheet-clear">${t("pk_clear")}</button></div>`;
   document.getElementById("sheet-close").onclick = closeSheet;
+  document.getElementById("sheet-export").onclick = openExport;
   document.getElementById("sheet-clear").onclick = ()=>{ clearPicks(); closeSheet(); };
   wireActs(sh);
   sh.querySelectorAll(".prow").forEach(row=>{
@@ -1241,6 +1315,8 @@ function encodePick(kind, entries){
 }
 function sendPick(kind){
   if(!PICK_KINDS.includes(kind) || !picks.size) return;
+  // ⚠ MIRROR of whpick.js WH_MAX_LINES — the portal refuses a longer link whole. EDIT BOTH.
+  if(picks.size > PICK_MAX_SEND){ openSheet(); renderSheet(t("pk_toomany")(fmtN(picks.size), fmtN(PICK_MAX_SEND))); return; }
   // a quantity that is not a positive number stops the send, by NAME — never read as 1
   pickBad = new Set([...picks].filter(([,q])=>!(parseQty(q) > 0)).map(([c])=>c));
   if(pickBad.size){
@@ -1265,6 +1341,299 @@ document.getElementById("list").addEventListener("click", e=>{
 document.getElementById("picksheet").addEventListener("click", e=>{ if(e.target.id === "picksheet") closeSheet(); });
 /* Safari brings the page back from its cache on «back» — the tray must say what is true now */
 window.addEventListener("pageshow", e=>{ if(e.persisted){ loadPicks(); syncPickMarks(); renderTray(); } });
+/* ==== EXPORT — the selection as a PDF or an Excel file, from this page (Samir, 25 Nov 2026) ====
+   «⬇ تصدير» on the tray (and in the quantities sheet) opens two plain choices and two buttons:
+     ☑ الكميات المطلوبة          the quantity set on each line
+     ☐ المخزون والمستودعات       stock + per-warehouse + shelf — stamps the file «نسخة داخلية»
+   Both are remembered on this device (lw_dash_export_v1). The default file is the one that can
+   go to a customer: picture, code, name, reference, brand, unit (+ quantity).
+   ⚠ The file is built from an explicit field list (exportLines) — `cost` is never read, so no
+   option can put a cost or a price in it. Writers: reorder_engine.js (the house XLSX writer and
+   the canvas→JPEG→PDF packer the reorder planner ships), loaded on the first export only, so the
+   public page's first paint is unchanged. A file is never half-right in silence: a blank or zero
+   quantity stops it by name (when quantities are printed), a code missing from the catalogue
+   stops it by name, a picture that does not load prints «بلا صورة» AND is counted in the
+   message, and the PDF refuses more than EX_PDF_MAX lines (say Excel) instead of freezing a tablet. */
+const EX_KEY = "lw_dash_export_v1", EX_PDF_MAX = 600;
+let exBusy = false;
+function exOpts(){
+  try{ const o = JSON.parse(localStorage.getItem(EX_KEY) || "null") || {};
+    return { qty: o.qty !== false, internal: o.internal === true }; }
+  catch{ return { qty:true, internal:false }; }
+}
+function setExOpts(o){ try{ localStorage.setItem(EX_KEY, JSON.stringify(o)); }catch{} }
+function openExport(){
+  sheetView = "export"; renderExport();
+  document.getElementById("picksheet").classList.add("open");
+}
+function renderExport(msg){
+  const sh = document.getElementById("sheet"), o = exOpts();
+  sh.innerHTML = `<div class="sheethead"><b>${escHtml(t("ex_title")(fmtN(picks.size)))}</b>
+      <button type="button" id="sheet-close" aria-label="${escHtml(t("close"))}">✕</button></div>
+    <div class="exbody">
+      <label class="exopt"><input type="checkbox" id="ex-qty"${o.qty?" checked":""}>
+        <span><b>${t("ex_qty")}</b><small>${t("ex_qty_hint")}</small></span></label>
+      <label class="exopt"><input type="checkbox" id="ex-int"${o.internal?" checked":""}>
+        <span><b>${t("ex_int")}</b><small>${t("ex_int_hint")}</small></span></label>
+      <div class="exsafe">${t("ex_safe")}</div>
+      <div class="exbtns">
+        <button type="button" class="exgo" data-fmt="pdf">${t("ex_pdf")}</button>
+        <button type="button" class="exgo" data-fmt="xlsx">${t("ex_xlsx")}</button>
+      </div>
+      <div class="exmsg" id="ex-msg" role="status">${msg ? escHtml(msg) : ""}</div>
+      <button type="button" class="sheetclear" id="ex-back">${t("ex_back")}</button>
+    </div>`;
+  document.getElementById("sheet-close").onclick = closeSheet;
+  document.getElementById("ex-back").onclick = ()=>{ if(!exBusy){ sheetView = "list"; renderSheet(); } };
+  const save = ()=> setExOpts({ qty: document.getElementById("ex-qty").checked, internal: document.getElementById("ex-int").checked });
+  document.getElementById("ex-qty").onchange = save;
+  document.getElementById("ex-int").onchange = save;
+  sh.querySelectorAll(".exgo").forEach(b=> b.onclick = ()=> runExport(b.dataset.fmt));
+}
+const exMsg = (s, bad)=>{ const el = document.getElementById("ex-msg"); if(el){ el.textContent = s; el.classList.toggle("bad", !!bad); } };
+/* every line the file can carry, by name — the allowlist (never `cost`) */
+function storeText(i){
+  const by = {};
+  for(const [s,q] of Object.entries(i.stock_by_store || {})) by[s] = {qty:q};
+  for(const r of itemLocs[i.code] || []) by[r.store] = {...(by[r.store]||{}), loc:r.loc};
+  return Object.entries(by).sort((a,b)=>(b[1].qty||0)-(a[1].qty||0))
+    .map(([s,v])=>`${shortStore(s)}${v.qty!=null?" "+fmtStoreQty(v.qty):""}${v.loc?` (${v.loc})`:""}`).join(" — ");
+}
+function exportLines(){
+  return [...picks].map(([code, q], k)=>{
+    const i = itemsByCode.get(code);
+    return { n:k+1, code, known:!!i, name: i ? String(i.name || i.latin_name || code) : code,
+      ref: i && i.latin_name ? String(i.latin_name) : "", brand: i && i.brand ? String(i.brand) : "",
+      unit: i ? String(i.unit || "").trim() : "", qty: parseQty(q),
+      stock: i && i.qty != null ? Number(i.qty) : null, stores: i ? storeText(i) : "",
+      img: i && i.image_url ? String(i.image_url) : "" };
+  });
+}
+const exDate = ()=> new Date().toLocaleDateString("en-CA", { timeZone:"Asia/Damascus" });
+const exSync = ()=>{ const iso = document.getElementById("sync").dataset.iso;
+  return iso ? new Date(iso).toLocaleString("en-GB",{ timeZone:"Asia/Damascus", dateStyle:"short", timeStyle:"short" }) : "—"; };
+const LRI = s => `\u2066${s}\u2069`;
+const SALES_WA = "+963 939 786 160";   // = storefront/src/config.js SALES_WHATSAPP
+let roLoad = null;
+function loadEngine(){
+  if(typeof RO !== "undefined") return Promise.resolve(RO);
+  if(!roLoad) roLoad = new Promise((res, rej)=>{
+    const s = document.createElement("script");
+    s.src = "reorder_engine.js";      // staged beside this page by deploy.sh
+    s.onload = ()=> typeof RO !== "undefined" ? res(RO) : rej(new Error("reorder_engine.js: no RO"));
+    s.onerror = ()=>{ roLoad = null; rej(new Error("reorder_engine.js did not load")); };
+    document.head.appendChild(s);
+  });
+  return roLoad;
+}
+function saveFile(bytes, name, mime){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([bytes], { type:mime })); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+async function runExport(fmt){
+  if(exBusy || !picks.size) return;
+  const o = { qty: document.getElementById("ex-qty").checked, internal: document.getElementById("ex-int").checked };
+  setExOpts(o);
+  const lines = exportLines();
+  // the same rule as a send — but only when the quantities are printed
+  if(o.qty){
+    pickBad = new Set(lines.filter(l=>!(l.qty > 0)).map(l=>l.code));
+    if(pickBad.size){
+      sheetView = "list";
+      renderSheet(t("pk_badqty")(lines.filter(l=>pickBad.has(l.code)).map(l=>l.name).join("، ")));
+      return;
+    }
+  }
+  const unknown = lines.filter(l=>!l.known).map(l=>l.code);
+  if(unknown.length){ exMsg(t("ex_nocat")(unknown.join("، ")), true); return; }
+  if(fmt === "pdf" && lines.length > EX_PDF_MAX){ exMsg(t("ex_pdfmax")(fmtN(lines.length), fmtN(EX_PDF_MAX)), true); return; }
+  exBusy = true;
+  const btns = [...document.querySelectorAll("#sheet .exgo, #sheet #ex-back, #sheet #sheet-close")];
+  btns.forEach(b=> b.disabled = true);
+  try{
+    const eng = await loadEngine(), d = t("doc"), day = exDate();
+    const kindName = o.internal ? d.file_int : d.file, base = `Lightware — ${kindName} — ${day}`;
+    // said inside an isolate, the Arabic part isolated again — or «2026-11-25.pdf» scrambles in the Arabic line
+    const said = (ext)=> `\u2066Lightware — \u2068${kindName}\u2069 — ${day}.${ext}\u2069`;
+    if(fmt === "xlsx"){
+      exMsg(t("ex_xl"));
+      saveFile(await exXlsx(eng, lines, o, d, day), base + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      exMsg(t("ex_done")(said("xlsx")));
+    } else {
+      const { bytes, missing } = await exPdf(eng, lines, o, d, day);
+      saveFile(bytes, base + ".pdf", "application/pdf");
+      exMsg(t("ex_done")(said("pdf")) + (missing ? "\n" + t("ex_noimg")(missing) : ""), missing > 0);
+    }
+  } catch(e){
+    exMsg(t("ex_fail")(e && e.message || String(e)), true);
+  } finally {
+    exBusy = false;
+    btns.forEach(b=> b.disabled = false);
+  }
+}
+
+/* ---------- the Excel file: one sheet, the house XLSX writer ---------- */
+function exXlsx(eng, lines, o, d, day){
+  const rtl = lang === "ar", al = rtl ? "r" : "l";
+  const S = {
+    title: { b:true, size:14, color:"FFFFFF", fill:"1C1813", align:al },
+    sub: { size:10, color: o.internal ? "9E2B14" : "6B6152", align:al, b: o.internal },
+    hdr: { b:true, size:10, color:"FFFFFF", fill:"E8870B", align:"c", wrap:true, box:true },
+    cen: { align:"c", box:true }, txt: { align:al, box:true, wrap:true }, code: { align:"c", box:true, color:"5C5344" },
+    num: { b:true, align:"c", box:true }, stock: { align:"c", box:true },
+    tot: { b:true, align:al, fill:"FBE9CE", box:true }, totX: { fill:"FBE9CE", box:true },
+  };
+  const cols = [["num",5],["code",13],["name",46],["ref",26],["brand",14],["unit",9]];
+  if(o.qty) cols.push(["qty",10]);
+  if(o.internal) cols.push(["stock",11],["stores",42]);
+  const L = (k)=>{ let s="", n=k; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=(n-m-1)/26; } return s; };
+  const last = L(cols.length), first = 4, end = first + lines.length - 1;
+  const subtitle = [d.n(fmtN(lines.length)), day].concat(o.internal ? [d.synced(exSync()), d.internal] : [`${d.contact} ${SALES_WA} · lightwaresy.com`]).join("  ·  ");
+  const rows = [
+    [{ v:`LIGHTWARE.  ${d.title}`, s:S.title }],
+    [{ v:subtitle, s:S.sub }],
+    cols.map(([k])=>({ v:d[k], s:S.hdr })),
+    ...lines.map(l=> cols.map(([k])=>{
+      if(k==="num") return { v:l.n, s:S.cen };
+      if(k==="code") return { v:l.code, s:S.code };            // text: «0101068» keeps its zero
+      if(k==="qty") return { v:l.qty, s:S.num };
+      if(k==="stock") return l.stock==null ? { v:"—", s:S.stock } : { v:l.stock, s:S.stock };
+      return { v:l[k] || "", s: k==="unit" ? S.cen : S.txt };
+    })),
+    [{ v:d.total(fmtN(lines.length)), s:S.tot }, ...cols.slice(1).map(()=>({ v:"", s:S.totX }))],
+  ];
+  return eng.xlsx([{ name:d.sheet, rtl, cols:cols.map(c=>c[1]), rows,
+    merges:[`A1:${last}1`, `A2:${last}2`, `A${end+1}:${last}${end+1}`], freeze:"A4",
+    filter:`A3:${last}${end}`, heights:{ 1:28, 2:22, 3:30 } }]);
+}
+
+/* ---------- the PDF: canvas pages (Arabic shapes natively) → JPEG → the house packer ---------- */
+const XP = { W:1240, H:1754, M:64, FONT:'-apple-system,"Segoe UI",system-ui,"Noto Sans Arabic",sans-serif',
+  ink:"#1C1813", sub:"#5C5344", faint:"#8A7F6A", amber:"#E8870B", amberBg:"#FBE9CE", line:"#E2D8C3", cream:"#F6F1E7",
+  zebra:"#FCFAF5", red:"#9E2B14" };
+function exImages(lines, onProg){
+  const urls = [...new Set(lines.map(l=>l.img).filter(Boolean))], out = new Map();
+  let done = 0, next = 0;
+  const one = (u)=> new Promise(res=>{
+    const img = new Image(); let fin = false;
+    const end = (ok)=>{ if(fin) return; fin = true; clearTimeout(tm); out.set(u, ok ? img : null); onProg(++done, urls.length); res(); };
+    const tm = setTimeout(()=> end(false), 15000);
+    img.crossOrigin = "anonymous";      // the storage answers «*»: the canvas stays exportable
+    img.onload = ()=> end(img.naturalWidth > 0); img.onerror = ()=> end(false);
+    img.src = u;
+  });
+  const worker = async ()=>{ while(next < urls.length) await one(urls[next++]); };
+  onProg(0, urls.length);
+  return Promise.all(Array.from({ length: Math.min(6, urls.length) }, worker)).then(()=> out);
+}
+async function exPdf(eng, lines, o, d, day){
+  const rtl = lang === "ar", { W, H, M } = XP, RH = o.internal ? 138 : 118;   // the warehouse line needs its own row
+  const pos = (dd)=> rtl ? W - dd : dd;                 // distance from the START edge → x
+  const SA = rtl ? "right" : "left", EA = rtl ? "left" : "right";
+  const T = (x, s, px, py, op = {})=>{ x.save(); x.font = `${op.bold?"bold ":""}${op.size||17}px ${XP.FONT}`;
+    x.fillStyle = op.color || XP.ink; x.textAlign = op.align || SA; x.direction = op.dir || (op.ltr ? "ltr" : (rtl ? "rtl" : "ltr"));
+    x.textBaseline = "middle"; x.fillText(String(s), px, py); x.restore(); };
+  const width = (x, s, size, bold)=>{ x.save(); x.font = `${bold?"bold ":""}${size}px ${XP.FONT}`; const w = x.measureText(String(s)).width; x.restore(); return w; };
+  const fit = (x, s, maxW, size, bold)=>{ let str = String(s); if(width(x,str,size,bold) <= maxW) return str;
+    while(str.length > 1 && width(x, str+"…", size, bold) > maxW) str = str.slice(0,-1); return str + "…"; };
+  const wrap2 = (x, s, maxW, size)=>{ const words = String(s).split(/\s+/).filter(Boolean); const out = []; let cur = "";
+    for(const w of words){ const tt = cur ? cur+" "+w : w;
+      if(width(x,tt,size,true) <= maxW || !cur){ cur = tt; continue; }
+      out.push(cur); cur = w; }
+    if(cur) out.push(cur);
+    return out.length <= 2 ? out.map(l=>fit(x,l,maxW,size,true)) : [out[0], fit(x, out.slice(1).join(" "), maxW, size, true)]; };
+  // Al-Ameen names are Arabic-first with Latin and digits inside («حبل ليد مباشر 3000K»): drawn in the
+  // English page's direction they come out «3000 حبل ليد مباشرK». Each takes the direction of its first letter.
+  const fsDir = (s)=>{ const m = /[A-Za-z\u00C0-\u024F\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/.exec(String(s));
+    return m && /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/.test(m[0]) ? "rtl" : "ltr"; };
+  const imgs = await exImages(lines, (a,n)=> exMsg(t("ex_imgs")(a,n)));
+  let missing = 0;
+  // columns from the END edge: qty, then stock
+  const qtyW = o.qty ? 150 : 0, stW = o.internal ? 150 : 0;
+  const textD = M + 44 + 112, textW = W - M - qtyW - stW - 24 - textD;
+  const pages = [];
+  let cv, x, y;
+  const colHead = ()=>{
+    x.fillStyle = XP.amber; x.fillRect(M, y, W - 2*M, 36);
+    T(x, d.num, pos(M+22), y+18, { bold:true, size:14, color:"#fff", align:"center" });
+    T(x, d.name, pos(textD), y+18, { bold:true, size:14, color:"#fff" });
+    if(o.internal) T(x, d.stock, pos(W - M - qtyW - stW/2), y+18, { bold:true, size:14, color:"#fff", align:"center" });
+    if(o.qty) T(x, d.qty, pos(W - M - qtyW/2), y+18, { bold:true, size:14, color:"#fff", align:"center" });
+    y += 36;
+  };
+  const newPage = ()=>{
+    cv = document.createElement("canvas"); cv.width = W; cv.height = H; x = cv.getContext("2d");
+    x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); pages.push(cv);
+    y = M + 70;
+    if(pages.length === 1){
+      T(x, d.title, pos(M), y + 10, { bold:true, size:34 });
+      const sub = [d.n(fmtN(lines.length)), LRI(day)].concat(o.internal ? [d.synced(LRI(exSync()))] : []).join("  ·  ");
+      T(x, sub, pos(M), y + 56, { size:16, color:XP.sub });
+      if(o.internal) T(x, d.internal, pos(M), y + 88, { bold:true, size:15, color:XP.red });
+      y += o.internal ? 112 : 84;
+      x.fillStyle = XP.ink; x.fillRect(M, y, W - 2*M, 3); y += 18;
+    }
+    colHead();
+  };
+  newPage();
+  for(const l of lines){
+    if(y + RH > H - M - 46) newPage();
+    if(l.n % 2 === 0){ x.fillStyle = XP.zebra; x.fillRect(M, y, W - 2*M, RH); }
+    x.fillStyle = XP.line; x.fillRect(M, y + RH - 1, W - 2*M, 1);
+    T(x, String(l.n), pos(M+22), y + RH/2, { size:14, color:XP.faint, align:"center", ltr:true });
+    // the picture, contained in a cream tile
+    const bx = rtl ? W - (M + 44) - 100 : M + 44, by = y + 9;
+    x.fillStyle = XP.cream; if(x.roundRect){ x.beginPath(); x.roundRect(bx, by, 100, 100, 10); x.fill(); } else x.fillRect(bx, by, 100, 100);
+    const im = l.img ? imgs.get(l.img) : null;
+    if(im){ const s = Math.min(88 / im.naturalWidth, 88 / im.naturalHeight), w = im.naturalWidth * s, h = im.naturalHeight * s;
+      x.drawImage(im, bx + (100 - w)/2, by + (100 - h)/2, w, h); }
+    else { if(l.img) missing++; T(x, d.noimg, bx + 50, by + 50, { size:12, color:XP.faint, align:"center" }); }
+    // brand · name (2 lines) · code · reference
+    let ty = y + 22;
+    if(l.brand){ T(x, fit(x, l.brand.toUpperCase(), textW, 12, true), pos(textD), ty, { bold:true, size:12, color:"#B86A06", dir:fsDir(l.brand) }); }
+    ty += 22;
+    const nm = wrap2(x, l.name, textW, 18);
+    const nd = fsDir(l.name);
+    nm.forEach((s, k)=> T(x, s, pos(textD), ty + k*24, { bold:true, size:18, dir:nd }));
+    ty += nm.length * 24 + 2;
+    const cw = width(x, l.code, 14, true);
+    T(x, l.code, pos(textD), ty, { bold:true, size:14, color:XP.sub, ltr:true, align:SA });
+    // the dot sits between the code and the reference, on whichever side the code is
+    if(l.ref){ const r = fit(x, l.ref, textW - cw - 24, 14);
+      T(x, rtl ? r + "  ·" : "·  " + r, pos(textD + cw + 10), ty, { size:14, color:XP.faint, ltr:true, align:SA }); }
+    if(o.internal && l.stores){ T(x, fit(x, `${d.stores}: \u2068${l.stores}\u2069`, textW, 13), pos(textD), y + RH - 18, { size:13, color:XP.sub }); }
+    if(o.internal){ const c = pos(W - M - qtyW - stW/2);
+      T(x, l.stock==null ? "—" : fmtStoreQty(l.stock), c, y + RH/2 - 8, { bold:true, size:22, color:XP.sub, align:"center", ltr:true });
+      if(l.unit) T(x, l.unit, c, y + RH/2 + 20, { size:13, color:XP.faint, align:"center", dir:fsDir(l.unit) }); }
+    if(o.qty){ const c = pos(W - M - qtyW/2);
+      x.fillStyle = XP.amberBg; x.fillRect(c - 58, y + 16, 116, RH - 32);
+      T(x, fmtPickQty(l.qty), c, y + RH/2 - 8, { bold:true, size:26, align:"center", ltr:true });
+      if(l.unit) T(x, l.unit, c, y + RH/2 + 22, { size:13, color:XP.sub, align:"center", dir:fsDir(l.unit) }); }
+    y += RH;
+  }
+  exMsg(t("ex_pages")(pages.length));
+  pages.forEach((p, k)=>{ const c = p.getContext("2d");
+    // the house mark at the start edge, the page count at the end edge, the footer line
+    // the house mark: light letterspaced caps, the amber period attached (brand/logo)
+    c.save(); c.font = `300 26px ${XP.FONT}`; c.textBaseline = "middle"; c.direction = "ltr"; c.textAlign = "left";
+    const ls = "letterSpacing" in c ? 5 : 0; if(ls) c.letterSpacing = ls + "px";
+    const ww = c.measureText("LIGHTWARE").width - ls;
+    c.save(); c.font = `bold 28px ${XP.FONT}`; const dw = c.measureText(".").width; c.restore();
+    const x0 = rtl ? W - M - dw - ww - 2 : M;
+    c.fillStyle = XP.ink; c.fillText("LIGHTWARE", x0, M + 10); c.restore();
+    T(c, ".", x0 + ww + 2, M + 10, { bold:true, size:28, color:XP.amber, ltr:true, align:"left" });
+    T(c, k ? `${d.title} · ${d.cont}` : LRI(day), pos(W - M), M + 10, { size:14, color:XP.faint, align:EA });
+    c.fillStyle = XP.line; c.fillRect(M, H - M - 30, W - 2*M, 1);
+    T(c, `${k+1} / ${pages.length}`, pos(W - M), H - M - 8, { size:13, color:XP.faint, align:EA, ltr:true });
+    T(c, o.internal ? d.internal : `${d.contact} ${LRI(SALES_WA)} · lightwaresy.com`, pos(M), H - M - 8,
+      { size:13, color: o.internal ? XP.red : XP.faint, bold: o.internal });
+  });
+  const jpegs = [];
+  for(const p of pages){ const b = await new Promise(r=> p.toBlob(r, "image/jpeg", 0.88)); jpegs.push(await b.arrayBuffer()); }
+  return { bytes: eng.packPdf(jpegs, pages.map(p=>({ w:p.width, h:p.height }))), missing };
+}
 /* ==== END PICK ==== */
 
 /* the unusual-stock alert. Rendered from render() so it follows the language
@@ -1317,22 +1686,82 @@ function render(){
     rows = [...rows].sort((a,b)=> sortMode==="qty_desc" ? b.qty-a.qty : a.qty-b.qty);
   else if(onlyMasatir && !q)                        // most out on consignment first
     rows = [...rows].sort((a,b)=> msTot(b)-msTot(a));
+  /* a new search / filter / sort starts again at the first chunk; anything else that
+     re-renders (the language flip, a toggle) keeps the cards already opened */
+  const key = viewKey();
+  if(key !== viewKeyLast){
+    // …and from the top: left parked at card 600 over a list that just got shorter, the
+    // end of it would sit in view and pull in chunk after chunk (found by export-verify X.12)
+    if(viewKeyLast !== null && window.scrollY > 0) window.scrollTo(0, 0);
+    shownN = PAGE_N; viewKeyLast = key;
+  }
+  viewRows = rows;
+  shownN = Math.min(Math.max(shownN, PAGE_N), Math.max(rows.length, PAGE_N));
+  shownRows = rows.slice(0, shownN);
   saveState();
   document.getElementById("count").textContent = t("count")(rows.length);
-  shownRows = rows.slice(0,400);
   if(!rows.length){
     list.innerHTML = `<div class="state">${t("no_results")}</div>`;
-    syncPickMarks(); renderTray();
+    syncPickMarks(); renderTray(); watchMore();
     return;
   }
   const team = teamOn();
-  list.innerHTML = shownRows.map(i=>`
+  list.innerHTML = shownRows.map(i=>cardHtml(i, team)).join("") + moreHtml();
+  wireMore(); syncPickMarks(); renderTray(); watchMore();
+}
+
+/* ---------- «ورجيني كمان»: the list opens 200 at a time (Samir, 25 Nov 2026) ----------
+   It used to stop at 400 cards with «ضيّق البحث لتشوفن». Now the next 200 arrive by
+   themselves as the end of the list comes near (IntersectionObserver), with the bar's two
+   buttons as the plain way to ask — «⬇ ورجيني 200 كمان» and «عرض الكل». New cards are
+   APPENDED: the cards already on screen, their pictures and the scroll stay as they are.
+   The count opened is kept with the session (lw_dash_state_v1 `n`), so coming back from
+   WhatsApp lands on the same card, not on card 200. */
+const PAGE_N = 200;
+let viewRows = [], shownN = PAGE_N, viewKeyLast = null, moreIO = null;
+const viewKey = ()=> JSON.stringify([query.trim(), activeBrand, activeFilter, sortMode, !!onlyMasatir, !!onlyDirect]);
+function moreHtml(){
+  const n = viewRows.length, rest = n - shownN;
+  if(rest > 0) return `<div class="morebar" id="morebar"><span>${t("shown_of")(fmtN(shownN), fmtN(n))}</span>
+      <button type="button" class="mnext" id="more-next">${t("more_next")(fmtN(Math.min(PAGE_N, rest)))}</button>
+      ${rest > PAGE_N ? `<button type="button" id="more-all">${t("more_all")(fmtN(n))}</button>` : ""}</div>`;
+  return n > PAGE_N ? `<div class="listend">${t("list_end")(fmtN(n))}</div>` : "";
+}
+function wireMore(){
+  const a = document.getElementById("more-next"), b = document.getElementById("more-all");
+  if(a) a.onclick = ()=> showMore(PAGE_N);
+  if(b) b.onclick = ()=> showMore(viewRows.length);
+}
+function showMore(k){
+  const bar = document.getElementById("morebar");
+  if(!bar || shownN >= viewRows.length) return;
+  const from = shownN, team = teamOn();
+  shownN = Math.min(viewRows.length, shownN + k);
+  shownRows = viewRows.slice(0, shownN);
+  bar.insertAdjacentHTML("beforebegin", viewRows.slice(from, shownN).map(i=>cardHtml(i, team)).join(""));
+  bar.insertAdjacentHTML("afterend", moreHtml());
+  bar.remove();
+  wireMore(); syncPickMarks(); saveState(); watchMore();
+}
+function watchMore(){
+  if(!("IntersectionObserver" in window)) return;     // the buttons still work
+  if(!moreIO) moreIO = new IntersectionObserver(es=>{
+    if(es.some(e=>e.isIntersecting)) showMore(PAGE_N);
+  }, { rootMargin:"0px 0px 900px 0px" });
+  moreIO.disconnect();
+  const bar = document.getElementById("morebar");
+  if(bar) moreIO.observe(bar);
+}
+const fmtN = n => Number(n).toLocaleString("en-US");
+
+function cardHtml(i, team){
+  return `
     <div class="item ${i.status}${team && picks.has(i.code) ? " picked" : ""}" data-code="${escHtml(i.code)}">
       ${team ? `<button type="button" class="pick" aria-pressed="${picks.has(i.code)}" aria-label="${escHtml(t(picks.has(i.code)?"pk_unpick":"pk_pick"))}"><span class="ring">${picks.has(i.code)?"✓":""}</span></button>` : ""}
       ${i.image_url ? `<img class="thumb" src="${i.image_url}" loading="lazy" alt=""
                             onclick="showLightbox('${i.image_url}')" onerror="this.remove()">` : ""}
       <div class="info">
-        <div class="name">${i.name || i.latin_name || i.code}</div>
+        <div class="name"><bdi>${i.name || i.latin_name || i.code}</bdi></div>
         <div class="meta">${i.code}${i.latin_name ? " · "+i.latin_name : ""}</div>
         ${packLineHtml(i)}${branchLineHtml(i)}${storeLineHtml(i)}${masatirLineHtml(i)}
       </div>
@@ -1347,10 +1776,7 @@ function render(){
         ${i.status==="UNTRACKED" && stockValue(i)!=null      /* what the dead-stock order ranks by */
           ? `<div class="cost">${t("stock_val")(usdHtml(stockValue(i)))}</div>` : ""}
       </div>
-    </div>`).join("");
-  if(rows.length>400)
-    list.innerHTML += `<div class="state">${t("more_rows")(rows.length-400)}</div>`;
-  syncPickMarks(); renderTray();
+    </div>`;
 }
 
 function msTot(i){ const m = msItems.get(i.code); return m ? m.qty + m.pend : 0; }
@@ -1534,6 +1960,8 @@ document.getElementById("sortpill").onclick = ()=>{
         opt.classList.add("selected");
       }
     }
+    // the cards that were open come back too, or the saved scroll lands past the end
+    if(saved && Number(saved.n) > PAGE_N){ shownN = Math.min(Number(saved.n), 100000); viewKeyLast = viewKey(); }
     renderChips(); render();
     if(saved && saved.scroll) requestAnimationFrame(()=>window.scrollTo(0, saved.scroll));
   }catch(e){
